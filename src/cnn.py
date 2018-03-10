@@ -12,14 +12,14 @@ import sklearn.metrics as metrics
 def execute_cnn():
     # Model Template
     (x, x_test, x_train, x_cv, y, y_test, y_train, y_cv, all_tweets, all_labels) = FileReader.process()
-    # y = to_categorical(y)
-    # y_train = to_categorical(y_train)
-    # y_test = to_categorical(y_test)
+    y = to_categorical(y)
+    y_train = to_categorical(y_train)
+    y_test = to_categorical(y_test)
     print(all_tweets[0])
     print(len(all_tweets[0]))
     for val in all_tweets:
         print(len(val))
-    adjusted = to_categorical(all_labels)
+
     model = Sequential() # declare model
     model.add(Dense(10, input_shape=(21000, ), kernel_initializer='he_normal')) # first layer
     model.add(Activation('relu'))
@@ -36,13 +36,13 @@ def execute_cnn():
                   loss='categorical_crossentropy',
                   metrics=['accuracy'])
     # Train Model
-    history = model.fit(all_tweets, adjusted,
-                        validation_data = (all_tweets, adjusted),
+    history = model.fit(x_train, y_train,
+                        validation_data = (x_test, y_test),
                         epochs=1,
                         batch_size=512,
                         verbose=1)
     # Report Results
-    predicted = model.predict(all_tweets)
+    predicted = model.predict(x_cv)
     n_values = 10
     y_pred = np.eye(n_values, dtype=int)[np.argmax(predicted, axis=1)]
     confusion = confusion_matrix(y_cv.argmax(axis=1), y_pred.argmax(axis=1))

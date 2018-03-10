@@ -26,9 +26,9 @@ def process():
         all_adjusted.append(tweet)
 
     # split it once on training / test
-    #x, x_test, y, y_test = train_test_split(all_tweets, all_labels, test_size=0.25, train_size=0.75)
+    x, x_test, y, y_test = train_test_split(all_adjusted, all_labels, test_size=0.25, train_size=0.75)
     # split training again on validation
-    #x_train, x_cv, y_train, y_cv = train_test_split(x, y, test_size=0.2, train_size=0.8)
+    x_train, x_cv, y_train, y_cv = train_test_split(x, y, test_size=0.2, train_size=0.8)
 
     # print("Test size" + str(len(x_test)))
     # print("Train size " + str(len(x_train)))
@@ -37,7 +37,7 @@ def process():
     # print("Test percent " + str(len(x_test) / len(all_tweets)))
     # print("Train percent " + str(len(x_train) / len(all_tweets)))
     # print("Validation percent " + str(len(x_cv) / len(all_tweets)))
-    return (None, None, None, None, None, None, None, None, np.array(all_adjusted), all_labels)
+    return (np.array(x), np.array(x_test), np.array(x_train), np.array(x_cv), np.array(y), np.array(y_test), np.array(y_train), np.array(y_cv), np.array(all_adjusted), all_labels)
 
 def padarray(A, size):
     t = size - len(A)
