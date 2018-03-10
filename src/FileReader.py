@@ -3,7 +3,7 @@ import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import train_test_split
 
-MAX_VECTOR_COUNT = 70*300 # word2vecs are 300 length vectors
+MAX_VECTOR_COUNT = 40*300 # word2vecs are 300 length vectors
 def process():
     print("Loading data")
 
@@ -22,9 +22,8 @@ def process():
             # we need to add fake empty tokens to pad
             needed_empty = MAX_VECTOR_COUNT - len(tweet)
             tweet = padarray(tweet, MAX_VECTOR_COUNT)
-            print(len(tweet))
         all_adjusted.append(tweet)
-
+    print("Adjustment complete. Performing model selection...")
     # split it once on training / test
     x, x_test, y, y_test = train_test_split(all_adjusted, all_labels, test_size=0.25, train_size=0.75)
     # split training again on validation
@@ -37,7 +36,8 @@ def process():
     # print("Test percent " + str(len(x_test) / len(all_tweets)))
     # print("Train percent " + str(len(x_train) / len(all_tweets)))
     # print("Validation percent " + str(len(x_cv) / len(all_tweets)))
-    return (np.array(x), np.array(x_test), np.array(x_train), np.array(x_cv), np.array(y), np.array(y_test), np.array(y_train), np.array(y_cv), np.array(all_adjusted), all_labels)
+    print("Train test split complete. Converting to np arrays and sending to network.")
+    return (np.array(x_test), np.array(x_train), np.array(x_cv), np.array(y_test), np.array(y_train), np.array(y_cv))
 
 def padarray(A, size):
     t = size - len(A)
@@ -48,7 +48,7 @@ def load_10_regular_1_bot():
     bot_loaded = np.load("D:/data/bot_tweets_vectorized_0" + ".npy")
     bot_tweets_unfiltered = [x[0] for x in bot_loaded]
     regular_tweets_unfiltered = []
-    for chunkNo in range(0, 1):
+    for chunkNo in range(0, 3):
         print("Loading " + "D:/data/regular_tweets_vectorized_0" + "_" + str(chunkNo) + ".npy")
         regular_loaded = np.load("D:/data/regular_tweets_vectorized_0" + "_" + str(chunkNo) + ".npy")
         regular_tweets_unfiltered = np.append(regular_tweets_unfiltered, [x[0] for x in regular_loaded])

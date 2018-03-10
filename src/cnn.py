@@ -11,17 +11,13 @@ import sklearn.metrics as metrics
 
 def execute_cnn():
     # Model Template
-    (x, x_test, x_train, x_cv, y, y_test, y_train, y_cv, all_tweets, all_labels) = FileReader.process()
-    y = to_categorical(y)
+    ( x_test, x_train, x_cv, y_test, y_train, y_cv) = FileReader.process()
+    print("Data received from FileReader. Converting label data to categorical format...")
     y_train = to_categorical(y_train)
     y_test = to_categorical(y_test)
-    print(all_tweets[0])
-    print(len(all_tweets[0]))
-    for val in all_tweets:
-        print(len(val))
-
+    print("Final prep complete, model initializing")
     model = Sequential() # declare model
-    model.add(Dense(10, input_shape=(21000, ), kernel_initializer='he_normal')) # first layer
+    model.add(Dense(1000, input_shape=(40*300, ), kernel_initializer='he_normal')) # first layer
     model.add(Activation('relu'))
     model.add(Dense(5096, activation='relu'))
     model.add(Dropout(0.25))
@@ -32,20 +28,22 @@ def execute_cnn():
     model.add(Activation('softmax'))
     model.summary()
     # Compile Model
+    print("Compiling model...")
     model.compile(optimizer='sgd',
                   loss='categorical_crossentropy',
                   metrics=['accuracy'])
+    print("Model compilation complete.")
     # Train Model
     history = model.fit(x_train, y_train,
                         validation_data = (x_test, y_test),
-                        epochs=1,
+                        epochs=100,
                         batch_size=512,
                         verbose=1)
     # Report Results
     predicted = model.predict(x_cv)
-    n_values = 10
+    n_values = 1
     y_pred = np.eye(n_values, dtype=int)[np.argmax(predicted, axis=1)]
-    confusion = confusion_matrix(y_cv.argmax(axis=1), y_pred.argmax(axis=1))
+    confusion = confusion_matrix(y_cv.argmax(axis=1), y_pred)
     acc = metrics.accuracy_score(y_cv, y_pred)
     prec = metrics.precision_score(y_cv, y_pred, average=None)
     rec = metrics.recall_score(y_cv, y_pred, average=None)
