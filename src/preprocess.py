@@ -33,6 +33,7 @@ def buildInputArrays(path, nlp):
                 rowTokens.append(tok.vector)
             output.append((rowTokens, row['userid']))
     print(datetime.datetime.now())
+    print(len(output))
     return output
 
 
@@ -47,9 +48,16 @@ def preprocessInput(path):
         for line in lines:
             outputFile.write(filterEmojis(line))
 
-def writeOutFile(array, filename, max_terms_per_file):
-    
-
+def writeOutNpyMatrixFile(array, filename, max_size_per_chunk):
+    np_array = np.array(array)
+    chunked = np.array_split(np_array, 10)
+    chunkCount = 0
+    for chunk in chunked:
+        print("Writing chunk of size " + str(chunk.size))
+        with open(filename + "_" + str(chunkCount) + ".npy", 'wb') as outputFile:
+            np_chunk = chunk
+            np.save(outputFile, np_chunk)
+        chunkCount += 1
 
 if __name__ == "__main__":
     now = datetime.datetime.now()
@@ -60,20 +68,15 @@ if __name__ == "__main__":
     print("Finished loading. " + str(now))
 
     bot_tweets = buildInputArrays('../data/bot_tweets.csv', nlp)
-    #bot_labels = np.ones(len(bot_tweets), dtype=int)
-    #we can load the labels later, since they're trivial to infer from the file we load
-    with open("bot_vectorized.npy", 'wb') as bot_tweet_file:
-        bot_tweet_np = np.array(bot_tweets)
-        np.save(bot_tweet_file, bot_tweet_np)
-
+    # bot_labels = np.ones(len(bot_tweets), dtype=int)
+    # we can load the labels later, since they're trivial to infer from the file we load
+    writeOutNpyMatrixFile(bot_tweets, "bot_tweets_vectorized", 25000)
     # a bit brutish but I don't want to deal with a lot of file IO
-    for chunkNumber in range(0, 7):
+    for chunkNumber in range(0, 8):
         print("Beginning file " + str(chunkNumber))
         matrix_tweets = []
         matrix_tweets += buildInputArrays('../data/non_bot_chunk_' + str(chunkNumber) + '.csv', nlp)
-        with open("ordinary_vectorized_" + str(chunkNumber) + ".npy", 'wb') as ordinary_tweet_file:
-            ordinary_tweet_np = np.array(matrix_tweets)
-            np.save(ordinary_tweet_file, ordinary_tweet_np)
+        writeOutNpyMatrixFile(matrix_tweets, "D:/data/" + "regular_tweets_vectorized_" + str(chunkNumber), 25000)
     now = datetime.datetime.now()
     print("Preprocessing complete at " + str(now))
 
