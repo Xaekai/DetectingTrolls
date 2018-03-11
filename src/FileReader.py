@@ -4,6 +4,8 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import train_test_split
 
 MAX_VECTOR_COUNT = 40*300 # word2vecs are 300 length vectors
+
+
 def process():
     print("Loading data")
 
@@ -39,10 +41,66 @@ def process():
     print("Train test split complete. Converting to np arrays and sending to network.")
     return (np.array(x_test), np.array(x_train), np.array(x_cv), np.array(y_test), np.array(y_train), np.array(y_cv))
 
+
 def padarray(A, size):
     t = size - len(A)
     return np.pad(A, pad_width=(0, t), mode='constant')
 
+
+def load_raveled_generator(lower_file, upper_file, lower_chunk, upper_chunk):
+    """Yields a tuple of values and label matrices for the files we expect """
+    print("Loading raveled vectorized files for use in generator.")
+    while True:
+        # for some reason model generators go on infinitely
+        for fileNo in range(lower_file, upper_file):
+            print("Loading " + "D:/data/bot_tweets_vectorized_raveled_" + str(fileNo) + ".npy")
+            bot_tweets = np.load("D:/data/bot_tweets_vectorized_raveled_" + str(fileNo) + ".npy").tolist()
+
+            for chunkNo in range(lower_chunk, upper_chunk):
+                print("Loading " + "D:/data/regular_tweets_vectorized_raveled_" + str(fileNo) + "_" + str(chunkNo) + ".npy")
+                regular_tweets = np.load(
+                    "D:/data/regular_tweets_vectorized_raveled_" + str(fileNo) + "_" + str(chunkNo) + ".npy").tolist()
+                accumulated_row_count = 0
+                bot_counter = 0
+                bot_index = 0
+                rows_before_yield = 1000
+                accumulated_rows = []
+                accumulated_labels = []
+                for tweet in regular_tweets:
+                    bot_counter += 1
+                    accumulated_row_count += 1
+                    if bot_counter % 10 == 0:
+                        # from the original data set, roughly one in ten are bot tweets;
+                        # so we don't pollute the training by the front end
+                        # being all bots and the back end being all regular
+                        # we show one in ten
+                        accumulated_rows.append(bot_tweets[bot_index])
+                        bot_index += 1
+                        accumulated_labels.append([0, 1])
+                    accumulated_rows.append(tweet)
+                    accumulated_labels.append([1, 0])
+                    if accumulated_row_count % rows_before_yield == 0:
+                        temp_rows = np.array(accumulated_rows)
+                        temp_labels = np.array(accumulated_labels)
+                        accumulated_rows = []
+                        accumulated_labels = []
+                        yield (temp_rows, temp_labels)
+
+
+
+def pad_tweet_arr(arr):
+    out = []
+    for tweet in arr:
+        if len(tweet) > MAX_VECTOR_COUNT:
+            print("Trimming tweet vectors with vector length " + str(len(tweet)))
+            tweet = tweet[:MAX_VECTOR_COUNT]
+            # trim, but it's highly unlikely there are that many tokens
+        else:
+            # we need to add fake empty tokens to pad
+            needed_empty = MAX_VECTOR_COUNT - len(tweet)
+            tweet = padarray(tweet, MAX_VECTOR_COUNT)
+        out.append(tweet)
+    return out
 def load_10_regular_1_bot():
     """Loads files such that roughly 90% are regular and 10% are bot tweets. Takes roughly 6.5gb RAM"""
     bot_loaded = np.load("D:/data/bot_tweets_vectorized_0" + ".npy")
