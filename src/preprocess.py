@@ -105,24 +105,23 @@ def pad_tweet_arr(arr):
     return out
 
 if __name__ == "__main__":
-    # now = datetime.datetime.now()
-    # print("Preprocessing begins at " + str(now))
-    # print("Loading Spacy's large vector set. " + str(now))
-    # nlp = spacy.load('en_vectors_web_lg')
-    # now = datetime.datetime.now()
-    # print("Finished loading. " + str(now))
-    #
-    # bot_tweets = buildInputArrays('../data/bot_tweets.csv', nlp)
-    # # bot_labels = np.ones(len(bot_tweets), dtype=int)
-    # # we can load the labels later, since they're trivial to infer from the file we load
-    # writeOutNpyMatrixFile(bot_tweets, "bot_tweets_vectorized", 10)
-    # # a bit brutish but I don't want to deal with a lot of file IO
-    # for chunkNumber in range(0, 8):
-    #     print("Beginning file " + str(chunkNumber))
-    #     matrix_tweets = []
-    #     matrix_tweets += buildInputArrays('../data/non_bot_chunk_' + str(chunkNumber) + '.csv', nlp)
-    #     writeOutNpyMatrixFile(matrix_tweets, "D:/data/" + "regular_tweets_vectorized_" + str(chunkNumber), 10)
-    # now = datetime.datetime.now()
-    # print("Preprocessing complete at " + str(now))
-    unrollAndFilter()
+    # use "python -m spacy download en_core_web_lg" to get the latest vector set
+    now = datetime.datetime.now()
+    print("Preprocessing begins at " + str(now))
+    print("Loading Spacy's large vector set. " + str(now))
+    nlp = spacy.load('en_vectors_web_lg')
+    now = datetime.datetime.now()
+    print("Finished loading. " + str(now))
 
+    # bot_tweets = buildInputArrays('../data/bot_tweets.csv', nlp)
+    # bot_labels = np.ones(len(bot_tweets), dtype=int)
+    # we can load the labels later, since they're trivial to infer from the file we load
+    # writeOutNpyMatrixFile(bot_tweets, "bot_tweets_vectorized", 10)
+    # a bit brutish but I don't want to deal with a lot of file IO
+    for chunkNumber in range(0, 7):
+        print("Beginning file " + str(chunkNumber))
+        matrix_tweets = []
+        matrix_tweets += buildInputArrays('../data/non_bot_chunk_' + str(chunkNumber) + '.csv', nlp)
+        writeOutNpyMatrixFile(matrix_tweets, "regular_tweets_vectorized_" + str(chunkNumber), 10)
+    now = datetime.datetime.now()
+    print("Preprocessing complete at " + str(now))

@@ -18,12 +18,11 @@ def process():
     for tweet in all_tweets:
         if len(tweet) >  MAX_VECTOR_COUNT:
             tweet = tweet[:MAX_VECTOR_COUNT]
-            #trim, but it's highly unlikely there are that many tokens
+            # trim, but it's highly unlikely there are that many tokens
             print("Trimming tweet vectors with vector length " + str(len(tweet)))
         else:
             # we need to add fake empty tokens to pad
-            needed_empty = MAX_VECTOR_COUNT - len(tweet)
-            tweet = padarray(tweet, MAX_VECTOR_COUNT)
+            tweet = pad_array(tweet, MAX_VECTOR_COUNT)
         all_adjusted.append(tweet)
     print("Adjustment complete. Performing model selection...")
     # split it once on training / test
@@ -42,7 +41,7 @@ def process():
     return (np.array(x_test), np.array(x_train), np.array(x_cv), np.array(y_test), np.array(y_train), np.array(y_cv))
 
 
-def padarray(A, size):
+def pad_array(A, size):
     t = size - len(A)
     return np.pad(A, pad_width=(0, t), mode='constant')
 
@@ -53,13 +52,13 @@ def load_raveled_generator(lower_file, upper_file, lower_chunk, upper_chunk):
     while True:
         # for some reason model generators go on infinitely
         for fileNo in range(lower_file, upper_file):
-            print("Loading " + "D:/data/bot_tweets_vectorized_raveled_" + str(fileNo) + ".npy")
-            bot_tweets = np.load("D:/data/bot_tweets_vectorized_raveled_" + str(fileNo) + ".npy").tolist()
+            print("Loading " + "../data/bot_tweets_vectorized_raveled_" + str(fileNo) + ".npy")
+            bot_tweets = np.load("../data/bot_tweets_vectorized_raveled_" + str(fileNo) + ".npy").tolist()
 
             for chunkNo in range(lower_chunk, upper_chunk):
-                print("Loading " + "D:/data/regular_tweets_vectorized_raveled_" + str(fileNo) + "_" + str(chunkNo) + ".npy")
+                print("Loading " + "../data/regular_tweets_vectorized_raveled_" + str(fileNo) + "_" + str(chunkNo) + ".npy")
                 regular_tweets = np.load(
-                    "D:/data/regular_tweets_vectorized_raveled_" + str(fileNo) + "_" + str(chunkNo) + ".npy").tolist()
+                    "../data/regular_tweets_vectorized_raveled_" + str(fileNo) + "_" + str(chunkNo) + ".npy").tolist()
                 accumulated_row_count = 0
                 bot_counter = 0
                 bot_index = 0
@@ -87,7 +86,6 @@ def load_raveled_generator(lower_file, upper_file, lower_chunk, upper_chunk):
                         yield (temp_rows, temp_labels)
 
 
-
 def pad_tweet_arr(arr):
     out = []
     for tweet in arr:
@@ -98,17 +96,22 @@ def pad_tweet_arr(arr):
         else:
             # we need to add fake empty tokens to pad
             needed_empty = MAX_VECTOR_COUNT - len(tweet)
-            tweet = padarray(tweet, MAX_VECTOR_COUNT)
+            tweet = pad_array(tweet, MAX_VECTOR_COUNT)
         out.append(tweet)
     return out
+
+
 def load_10_regular_1_bot():
     """Loads files such that roughly 90% are regular and 10% are bot tweets. Takes roughly 6.5gb RAM"""
-    bot_loaded = np.load("D:/data/bot_tweets_vectorized_0" + ".npy")
-    bot_tweets_unfiltered = [x[0] for x in bot_loaded]
+    bot_tweets_unfiltered = []
+    for chunkNo in range(0, 2):
+        print("Loading " + "../data/bot_tweets_vectorized" + "_" + str(chunkNo) + ".npy")
+        bot_loaded = np.load("../data/bot_tweets_vectorized" + "_" + str(chunkNo) + ".npy")
+        bot_tweets_unfiltered = np.append(bot_tweets_unfiltered, [x[0] for x in bot_loaded])
     regular_tweets_unfiltered = []
-    for chunkNo in range(0, 3):
-        print("Loading " + "D:/data/regular_tweets_vectorized_0" + "_" + str(chunkNo) + ".npy")
-        regular_loaded = np.load("D:/data/regular_tweets_vectorized_0" + "_" + str(chunkNo) + ".npy")
+    for chunkNo in range(0, 6):
+        print("Loading " + "../data/regular_tweets_vectorized_0" + "_" + str(chunkNo) + ".npy")
+        regular_loaded = np.load("../data/regular_tweets_vectorized_0" + "_" + str(chunkNo) + ".npy")
         regular_tweets_unfiltered = np.append(regular_tweets_unfiltered, [x[0] for x in regular_loaded])
     bot_tweets = list(filter(lambda x: len(x) != 0, bot_tweets_unfiltered))
     regular_tweets = list(filter(lambda x: len(x) != 0, regular_tweets_unfiltered))
@@ -125,12 +128,12 @@ def load_all():
     bot_tweets_unfiltered = []
     regular_tweets_unfiltered = []
     for fileNo in range(0, 9):
-        print("Loading " + "D:/data/bot_tweets_vectorized_" + str(fileNo) + ".npy")
-        bot_loaded = np.load("D:/data/bot_tweets_vectorized_" + str(fileNo) + ".npy")
+        print("Loading " + "../data/bot_tweets_vectorized_" + str(fileNo) + ".npy")
+        bot_loaded = np.load("../data/bot_tweets_vectorized_" + str(fileNo) + ".npy")
         bot_tweets_unfiltered = np.append(bot_tweets_unfiltered, [x[0] for x in bot_loaded])
         for chunkNo in range(0, 9):
-            print("Loading " + "D:/data/regular_tweets_vectorized_" + str(fileNo) + "_" + str(chunkNo) + ".npy")
-            regular_loaded = np.load("D:/data/regular_tweets_vectorized_" + str(fileNo) + "_" + str(chunkNo) + ".npy")
+            print("Loading " + "../data/regular_tweets_vectorized_" + str(fileNo) + "_" + str(chunkNo) + ".npy")
+            regular_loaded = np.load("../data/regular_tweets_vectorized_" + str(fileNo) + "_" + str(chunkNo) + ".npy")
             regular_tweets_unfiltered = np.append(regular_tweets_unfiltered, [x[0] for x in regular_loaded])
     bot_tweets = list(filter(lambda x: len(x) != 0, bot_tweets_unfiltered))
     regular_tweets = list(filter(lambda x: len(x) != 0, regular_tweets_unfiltered))
