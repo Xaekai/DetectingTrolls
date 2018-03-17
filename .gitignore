@@ -102,3 +102,5 @@ ENV/
 
 # npy generated files
 *.npy
+# output models
+troll_model*

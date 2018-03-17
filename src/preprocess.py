@@ -5,11 +5,11 @@ import spacy
 import datetime
 import time
 import numpy as np
-
 import cnn
+from constants import MAX_VECTOR_SIZE
 emojis_list = map(lambda x: ''.join(x.split()), emoji.UNICODE_EMOJI.keys())
 r = re.compile('|'.join(re.escape(p) for p in emojis_list))
-MAX_VECTOR_COUNT = 40*300
+
 
 def filterEmojis(s):
     s = re.sub(r, ' ', s)
