@@ -10,10 +10,10 @@ import tensorflow as tf
 from sklearn.metrics import confusion_matrix
 from keras.utils import to_categorical
 import sklearn.metrics as metrics
-from constants import MAX_VECTOR_COUNT
+from constants import MAX_VECTOR_COUNT, LEARNING_RATE
 import FileReader
 
-def execute_cnn_no_generator(data_path, label_path, model_name):
+def execute_network(data_path, label_path, model_name):
     # Model Template
     print("Initializing model using naive file processing.")
     x_train, x_test, y_train, y_test = FileReader.process(data_path, label_path)
@@ -32,7 +32,7 @@ def execute_cnn_no_generator(data_path, label_path, model_name):
     model.summary()
     # Compile Model
     print("Compiling model...")
-    optimizer = SGD(lr=0.001)
+    optimizer = SGD(lr=LEARNING_RATE)
 
     model.compile(optimizer='sgd',
                   loss='binary_crossentropy',
@@ -41,7 +41,7 @@ def execute_cnn_no_generator(data_path, label_path, model_name):
     # Train Model
     history = model.fit(x_train, y_train,
                         validation_data = (x_test, y_test),
-                        epochs=3,
+                        epochs=2,
                         batch_size=2048,
                         verbose=1)
     print("Epochs complete. Saving model...")
@@ -75,7 +75,7 @@ def predict_on_model():
 
 def train_existing_model(data_path, label_path, model_name, trainCount):
     print("Initializing model using naive file processing.")
-    x_train, x_test, y_train, y_test = FileReader.process("../data/90_10_tweets", "../data/90_10_labels")
+    x_train, x_test, y_train, y_test = FileReader.process(data_path, label_path)
     y_train = to_categorical(y_train)
     y_test = to_categorical(y_test)
     print("Data received from FileReader. Converting label data to categorical format...")
@@ -84,13 +84,15 @@ def train_existing_model(data_path, label_path, model_name, trainCount):
     print("Model loaded.")
     history = model.fit(x_train, y_train,
                         validation_data=(x_test, y_test),
-                        epochs=1,
+                        epochs=2,
                         batch_size=2048,
                         verbose=1)
     print("Epochs complete. Saving model...")
     model.save(model_name + "_" + str(trainCount))
     print("Model saved. Use predict_on_model() to see cross validation results.")
     return model_name + "_" + str(trainCount)
+
+
 if __name__ == "__main__":
     # base_name, chunk_lower, chunk_higher, fileNo
     first = True
@@ -101,14 +103,16 @@ if __name__ == "__main__":
             base_dir = "../data/large_chunk_" + str(fileNo) + "_" + str(chunk_lower) + "_" + str(chunk_lower + 3)
             FileReader.build_large_arr(
                 base_dir,
-                fileNo,
+                fileNo + chunk_lower // 3,
                 chunk_lower,
                 chunk_lower + 3,
                 fileNo)
+            # We break up data into these chunks partially as an artifact of preprocessing
+            # but more realistically because
             tweet_file = base_dir + "_tweets"
             label_file = base_dir + "_labels"
             if first:
-                execute_cnn_no_generator(tweet_file, label_file, last_model_name)
+                execute_network(tweet_file, label_file, last_model_name)
                 first = False
             else:
                 last_model_name = train_existing_model(tweet_file, label_file, last_model_name, training_iteration_count)
