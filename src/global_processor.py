@@ -1,3 +1,7 @@
+"""
+Once data has been vectorized, this makes large scale adjustments to the data to make it ready for the network.
+"""
+
 import numpy as np
 from constants import MAX_VECTOR_COUNT
 import pandas as pd
@@ -46,15 +50,16 @@ def process(large_file_path_to_load, labels_path):
     print("Y Train size:" + str(len(y_test)))
     print("Train test split complete. Converting to np arrays and sending to network.")
     return x_train, x_test, y_train, y_test
+def process_no_split(large_file_path_to_load, labels_path):
+    print("Loading data from large file...")
+    all_adjusted = np.load(large_file_path_to_load + ".npy")
+    all_labels = np.load(labels_path + ".npy")
 
-def longlist2array(longlist):
-    """Allegedly, this is much faster for 2d arrays than asarray."""
-    shape = (len(longlist), 12000)
-    out = np.zeros(shape)
-    for i in range(0, len(longlist)):
-        out[i] = longlist[i]
-    return out
-
+    print("Loaded. Scaling data...")
+    scaler = StandardScaler(copy=False)
+    all_scaled = scaler.fit_transform(all_adjusted)
+    print("Scaling complete. Sending to validator...")
+    return all_scaled, all_labels
 
 def pad_tweets(all_tweets):
     all_adjusted = []
@@ -108,7 +113,3 @@ def load_chunk(bot_no, chunk_lower, chunk_higher, fileNo):
     bot_labels = np.ones(len(bot_tweets), dtype=int)
     regular_labels = np.zeros(len(regular_tweets), dtype=int)
     return (bot_tweets, bot_labels, regular_tweets, regular_labels)
-
-if __name__ == "__main__":
-    print("Currently not implemented")
-    exit(1)

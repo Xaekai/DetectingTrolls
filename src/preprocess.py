@@ -1,3 +1,6 @@
+"""
+This performs all the CSV parsing, wrangling and NLP (word2vec, using SpaCy's large vector set) for the data.
+"""
 import emoji
 import re
 import csv
@@ -5,8 +8,7 @@ import spacy
 import datetime
 import time
 import numpy as np
-import cnn
-from constants import MAX_VECTOR_SIZE, LEARNING_RATE
+from constants import MAX_VECTOR_SIZE
 emojis_list = map(lambda x: ''.join(x.split()), emoji.UNICODE_EMOJI.keys())
 r = re.compile('|'.join(re.escape(p) for p in emojis_list))
 

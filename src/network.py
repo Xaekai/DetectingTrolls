@@ -11,12 +11,12 @@ from sklearn.metrics import confusion_matrix
 from keras.utils import to_categorical
 import sklearn.metrics as metrics
 from constants import MAX_VECTOR_COUNT, LEARNING_RATE
-import FileReader
+import global_processor
 
 def execute_network(data_path, label_path, model_name):
     # Model Template
     print("Initializing model using naive file processing.")
-    x_train, x_test, y_train, y_test = FileReader.process(data_path, label_path)
+    x_train, x_test, y_train, y_test = global_processor.process(data_path, label_path)
     y_train = to_categorical(y_train)
     y_test = to_categorical(y_test)
     print("Data received from FileReader. Converting label data to categorical format...")
@@ -48,11 +48,11 @@ def execute_network(data_path, label_path, model_name):
     model.save(model_name)
     print("Model saved. Use predict_on_model() to see cross validation results.")
 
-def predict_on_model():
+def predict_on_model(data_path, label_path, model_name):
     print("Getting cross validation set from FileReader...")
-    x_cv, y_cv = FileReader.get_cv_set()
+    x_cv, y_cv = global_processor.process_no_split(data_path, label_path)
     print("Loading model...")
-    model = load_model("troll_model")
+    model = load_model(model_name)
     print("Load complete.")
     # Report Results
     predicted = model.predict(x_cv)
@@ -75,7 +75,7 @@ def predict_on_model():
 
 def train_existing_model(data_path, label_path, model_name, trainCount):
     print("Initializing model using naive file processing.")
-    x_train, x_test, y_train, y_test = FileReader.process(data_path, label_path)
+    x_train, x_test, y_train, y_test = global_processor.process(data_path, label_path)
     y_train = to_categorical(y_train)
     y_test = to_categorical(y_test)
     print("Data received from FileReader. Converting label data to categorical format...")
@@ -93,7 +93,7 @@ def train_existing_model(data_path, label_path, model_name, trainCount):
     return model_name + "_" + str(trainCount)
 
 
-if __name__ == "__main__":
+def execute_network():
     # base_name, chunk_lower, chunk_higher, fileNo
     first = True
     last_model_name = "troll_model"
@@ -101,7 +101,7 @@ if __name__ == "__main__":
     for fileNo in range(0, 6):
         for chunk_lower in range(0, 9, 3):
             base_dir = "../data/large_chunk_" + str(fileNo) + "_" + str(chunk_lower) + "_" + str(chunk_lower + 3)
-            FileReader.build_large_arr(
+            global_processor.build_large_arr(
                 base_dir,
                 fileNo + chunk_lower // 3,
                 chunk_lower,
@@ -117,3 +117,7 @@ if __name__ == "__main__":
             else:
                 last_model_name = train_existing_model(tweet_file, label_file, last_model_name, training_iteration_count)
                 training_iteration_count += 1
+    print("All processing complete! Completed " + str(training_iteration_count) + " iterations.")
+
+if __name__ == "__main__":
+    execute_network()
