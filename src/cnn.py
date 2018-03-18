@@ -13,24 +13,22 @@ import sklearn.metrics as metrics
 from constants import MAX_VECTOR_COUNT
 import FileReader
 
-def execute_cnn_no_generator():
+def execute_cnn_no_generator(data_path, label_path, model_name):
     # Model Template
     print("Initializing model using naive file processing.")
-    (x_test, x_train, x_cv, y_test, y_train, y_cv) = FileReader.process()
+    x_train, x_test, y_train, y_test = FileReader.process(data_path, label_path)
     y_train = to_categorical(y_train)
     y_test = to_categorical(y_test)
     print("Data received from FileReader. Converting label data to categorical format...")
 
     print("Final prep complete, model initializing")
-    model = Sequential() # declare model
-    model.add(Dense(1000, input_shape=(MAX_VECTOR_COUNT, ), kernel_initializer='he_normal')) # first layer
+    model = Sequential()  # declare model
+    model.add(Dense(1000, input_shape=(MAX_VECTOR_COUNT, ), kernel_initializer='he_normal'))  # first layer
     model.add(Activation('linear'))
-    model.add(Dense(5096, activation='linear'))
-    model.add(Dense(5096, activation='softplus'))
-    model.add(Dense(5096, activation='sigmoid'))
-    model.add(Dense(5096, activation='linear'))
-    model.add(Dense(2, kernel_initializer='he_normal')) # last layer
-    model.add(Activation('softmax'))
+    model.add(Dense(2000, activation='linear'))
+    model.add(Dense(2000, activation='linear'))
+    model.add(Dense(2, kernel_initializer='uniform'))  # last layer
+    model.add(Activation('sigmoid'))
     model.summary()
     # Compile Model
     print("Compiling model...")
@@ -43,11 +41,11 @@ def execute_cnn_no_generator():
     # Train Model
     history = model.fit(x_train, y_train,
                         validation_data = (x_test, y_test),
-                        epochs=1,
+                        epochs=3,
                         batch_size=2048,
                         verbose=1)
     print("Epochs complete. Saving model...")
-    model.save("troll_model")
+    model.save(model_name)
     print("Model saved. Use predict_on_model() to see cross validation results.")
 
 def predict_on_model():
@@ -75,23 +73,43 @@ def predict_on_model():
     print(rec)
     print(prec)
 
-def train_existing_model():
+def train_existing_model(data_path, label_path, model_name, trainCount):
     print("Initializing model using naive file processing.")
-    (x_test, x_train, x_cv, y_test, y_train, y_cv) = FileReader.process()
+    x_train, x_test, y_train, y_test = FileReader.process("../data/90_10_tweets", "../data/90_10_labels")
     y_train = to_categorical(y_train)
     y_test = to_categorical(y_test)
     print("Data received from FileReader. Converting label data to categorical format...")
     print("Loading model...")
-    model = load_model("troll_model")
+    model = load_model(model_name)
     print("Model loaded.")
     history = model.fit(x_train, y_train,
-                        validation_data = (x_test, y_test),
+                        validation_data=(x_test, y_test),
                         epochs=1,
                         batch_size=2048,
                         verbose=1)
     print("Epochs complete. Saving model...")
-    model.save("troll_model_trained")
+    model.save(model_name + "_" + str(trainCount))
     print("Model saved. Use predict_on_model() to see cross validation results.")
+    return model_name + "_" + str(trainCount)
 if __name__ == "__main__":
-    execute_cnn_no_generator()
-    predict_on_model()
+    # base_name, chunk_lower, chunk_higher, fileNo
+    first = True
+    last_model_name = "troll_model"
+    training_iteration_count = 0
+    for fileNo in range(0, 6):
+        for chunk_lower in range(0, 9, 3):
+            base_dir = "../data/large_chunk_" + str(fileNo) + "_" + str(chunk_lower) + "_" + str(chunk_lower + 3)
+            FileReader.build_large_arr(
+                base_dir,
+                fileNo,
+                chunk_lower,
+                chunk_lower + 3,
+                fileNo)
+            tweet_file = base_dir + "_tweets"
+            label_file = base_dir + "_labels"
+            if first:
+                execute_cnn_no_generator(tweet_file, label_file, last_model_name)
+                first = False
+            else:
+                last_model_name = train_existing_model(tweet_file, label_file, last_model_name, training_iteration_count)
+                training_iteration_count += 1
