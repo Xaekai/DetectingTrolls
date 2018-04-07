@@ -27,7 +27,9 @@ logging.basicConfig(filename='latest.log', level=logging.DEBUG)
 # Init- must occur in global scope, since other funcs will need them later
 emojis_list = map(lambda x: ''.join(x.split()), emoji.UNICODE_EMOJI.keys())
 r = re.compile('|'.join(re.escape(p) for p in emojis_list))
-app = Flask(__name__)
+application = app = Flask(__name__)
+# cross origin support
+
 now = datetime.datetime.now()
 print("Preprocessing begins at " + str(now))
 print("Loading SpaCy's large vector set. " + str(now))
@@ -84,15 +86,16 @@ def filterEmojis(s):
 def predict_scaled_tweet(tweet):
     return model.predict(tweet)
     
-    
-@app.route('/predict', methods=['POST'])
+@app.route('/', methods=['GET'])
+def heartbeat():
+	return "<html><body>Alive and well!</body></html>"
+@app.route('/predict', methods=['GET'])
 def vector():
-    data = request.get_json()
+    target = request.args.get('target')
     
-    if not data:
+    if not target:
         logging.error("An invalid request was submitted to the API.")
         abort(400)
-    target = data['target']
     logging.info("Processing new request " + target)
     processed = process_tweet(target)
     scaled = scale_tweet(processed)
@@ -101,6 +104,7 @@ def vector():
 
 def main():
     #app.run(debug=False, use_reloader=False)
-    app.run(debug=False, use_reloader=False, host="0.0.0.0")
-main()  
+    app.run(debug=False, use_reloader=False, host="127.0.0.1")
+if __name__ == '__main__':
+	main()
     
