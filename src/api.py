@@ -121,7 +121,10 @@ def vector():
     if validators.url(target):
         if "twitter" in get_tld(target):
             logging.info("Flagged " + target + " as a tweet.")
-            final_target = get_tweet_raw_text(api, target)
+            if api.rate_limit_status() >= 0:
+                final_target = get_tweet_raw_text(api, target)
+            else:
+                abort(420)
         else:
             logging.error("A url was submitted " + target + " but it is not a TLD matching the API filter.")
             abort(406) #406 not accepted
