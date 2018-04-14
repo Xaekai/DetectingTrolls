@@ -10,29 +10,66 @@ os.environ["CUDA_VISIBLE_DEVICES"] = ""
 # generic
 from flask import Flask, abort, request
 import flask
+
 import datetime
 import time
 import numpy as np
 import emoji
 import re
 import logging
-# twitter related
-from oauth import consumer_key, consumer_secret, access_token, access_token_secret
-import tweepy
-# common module code
-from common import *
-log.info("Common module loaded!")
-# twitter streamer
-from streamer import *
 
+
+# twitter related
+import tweepy
 import validators
 from tld import get_tld
-
+from oauth import consumer_key, consumer_secret, access_token, access_token_secret
 # keras / ai related
 from constants import MAX_VECTOR_COUNT
 from sklearn.externals import joblib
 import spacy
+import tensorflow as tf
+import keras
 from keras.models import load_model
+
+# set up logging
+logging.basicConfig(filename='latest.log', level=logging.DEBUG)
+# Init- must occur in global scope, since other funcs will need them later
+emojis_list = map(lambda x: ''.join(x.split()), emoji.UNICODE_EMOJI.keys())
+r = re.compile('|'.join(re.escape(p) for p in emojis_list))
+
+
+def reply_percentages(username, status_id, full_text, model, scaler):
+    # send a get request
+    tokenized_raveled_padded = tokenize_ravel_pad(full_text)
+    scaled = scale_tweet(tokenized_raveled_padded)
+    predicted = predict_scaled_tweet_threaded(scaled)
+    print(predicted)
+    predicted_list = predicted[0].tolist()
+    print(predicted_list)
+    print(predicted_list[0])
+    print(predicted_list[1])
+    api.update_status(status='@{0} Regular: {1}\nTroll: {2}\n Learn more at http://trollspotter.com'.format(username, predicted_list[0], predicted_list[1]), in_reply_to_status_id=status_id)
+
+# create a class inheriting from the tweepy  StreamListener
+# tried breaking this up into another file, it's here because of some strange scoping / multithreading issues otherwise
+class BotStreamer(tweepy.StreamListener):
+    def on_status(self, status):
+        print(status._json)
+        logging.info("Processing a new status " + status._json['text'])
+        print("Processing a new status " + status._json['text'])
+        username = status._json['user']['screen_name']
+        status_id = status._json['id_str']
+        text = status._json['text']
+        # entities provide structured data from Tweets including resolved URLs, media, hashtags and mentions without having to parse the text to extract that information
+        reply_percentages(username, status_id, text, model, scaler)
+        
+    def on_error(self, error):
+        logging.error("ERROR! " + str(error))
+        if status_code == 420:
+            logging.error("We are rate limited!")
+            return True
+
 
 
 application = app = Flask(__name__)
@@ -42,25 +79,76 @@ print("Loading SpaCy's large vector set. " + str(now))
 nlp = spacy.load('en_vectors_web_lg')
 now = datetime.datetime.now()
 print("Finished loading. " + str(now))
-log.info("Loading scaler from trained data.")
+print("Loading scaler from trained data.")
 scaler = joblib.load("scaler.pkl")
-log.info("Loading complete.")
-# twitter api setup
+print("Loading complete.")
 
-log.info("Loading Keras model...")
-model = load_model("troll_model.h5")
-log.info("Load complete.")
-log.info("Initializing twitter feed stream on new thread...")
-log.info("Establishing Twitter API connection.")
+# twitter api setup
+print("Establishing Twitter API connection.")
 auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
 auth.set_access_token(access_token, access_token_secret)
 api = tweepy.API(auth)
-log.info("Establishing model complete.")
-botStreamListener = BotStreamer(model, scaler)
-stream = tweepy.Stream(auth, botStreamListener)
-# stream.filter(track=['@Troll_Spotter'], async=True)
-log.info("Async thread creation complete!")
 
+print("Loading Keras model...")
+model = load_model("troll_model.h5")
+# needed for multithreading support
+model._make_predict_function()
+graph = tf.get_default_graph()
+print("Load complete. Loading stream server.")
+botStreamListener = BotStreamer()
+stream = tweepy.Stream(auth, botStreamListener)
+stream.filter(track=['@Troll_Spotter'], async=True)
+logging.info("Async thread creation complete!")
+
+print("Listening for requests...")
+def padarray(A, size):
+    t = size - len(A)
+    return np.pad(A, pad_width=(0, t), mode='constant')
+
+
+def pad_tweet(tweet):
+    if len(tweet) > MAX_VECTOR_COUNT:
+        print("Trimming tweet vectors with vector length " + str(len(tweet)))
+        tweet = tweet[:MAX_VECTOR_COUNT]
+        # trim, but it's highly unlikely there are that many tokens
+    else:
+        # we need to add fake empty tokens to pad
+        needed_empty = MAX_VECTOR_COUNT - len(tweet)
+        tweet = padarray(tweet, MAX_VECTOR_COUNT)
+    return tweet
+
+    
+def tokenizeTweet(tweet):
+    output = []
+    rowTokens = []
+    tokens = nlp(tweet)
+    for tok in tokens:
+        output.append(tok.vector)
+    return output
+
+    
+def tokenize_ravel_pad(tweet):
+    tokens = tokenizeTweet(filterEmojis(tweet))
+    raveled = np.concatenate(tokens).ravel()
+    padded = pad_tweet(raveled)
+    return padded
+    
+    
+def scale_tweet(tweet):
+    return scaler.transform(tweet.reshape(1, -1))
+    
+    
+def filterEmojis(s):
+    s = re.sub(r, ' ', s)
+    return s
+
+    
+def predict_scaled_tweet(tweet):
+    return model.predict(tweet)
+def predict_scaled_tweet_threaded(tweet):
+    with graph.as_default():
+        return model.predict(tweet)
+    
 @app.route('/', methods=['GET'])
 def heartbeat():
     return "<html><body>Alive and well!</body></html>"
@@ -70,30 +158,36 @@ def heartbeat():
 def vector():
     target = request.args.get('target')
     if not target:
-        log.error("An invalid request was submitted to the API.")
+        logging.error("An invalid request was submitted to the API.")
         abort(400)
     
-    log.info("Processing new request " + target)
+    logging.info("Processing new request " + target)
     final_target = "" #the text the AI will actually see; retrieved from APIs if url
     if validators.url(target):
         if "twitter" in get_tld(target):
-            log.info("Flagged " + target + " as a tweet.")
+            logging.info("Flagged " + target + " as a tweet.")
             if api.rate_limit_status() >= 0:
                 final_target = get_tweet_raw_text(api, target)
             else:
                 abort(420)
         else:
-            log.error("A url was submitted " + target + " but it is not a TLD matching the API filter.")
+            logging.error("A url was submitted " + target + " but it is not a TLD matching the API filter.")
             abort(406) #406 not accepted
     else:
         final_target = target
-    tokenized_raveled_padded = tokenize_ravel_pad(final_target)
-    scaled = scale_tweet(scaler, tokenize_ravel_padded)
-    predicted = predict_scaled_tweet(model, scaled)
+    tokenize_ravel_padded = tokenize_ravel_pad(final_target)
+    scaled = scale_tweet(processed)
+    predicted = predict_scaled_tweet(scaled)
     return flask.jsonify(predicted.tolist())
 
     
+def get_tweet_raw_text(api, url):
+    idVal = url.split('/')[-1]
+    public_tweet = api.get_status(idVal, tweet_mode='extended')
+    logging.info("Retrieved tweet: " + public_tweet.full_text + " from url " + url)
+    return public_tweet.full_text
 
+    
     
     
 def main():
