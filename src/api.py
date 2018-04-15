@@ -33,23 +33,35 @@ import keras
 from keras.models import load_model
 
 # set up logging
-logging.basicConfig(filename='latest.log', level=logging.DEBUG)
+logging.basicConfig(filename='latest.log', level=logging.INFO)
 # Init- must occur in global scope, since other funcs will need them later
 emojis_list = map(lambda x: ''.join(x.split()), emoji.UNICODE_EMOJI.keys())
 r = re.compile('|'.join(re.escape(p) for p in emojis_list))
 
-
-def reply_percentages(username, status_id, full_text, model, scaler):
-    # send a get request
-    tokenized_raveled_padded = tokenize_ravel_pad(full_text)
-    scaled = scale_tweet(tokenized_raveled_padded)
-    predicted = predict_scaled_tweet_threaded(scaled)
-    print(predicted)
-    predicted_list = predicted[0].tolist()
-    print(predicted_list)
-    print(predicted_list[0])
-    print(predicted_list[1])
-    api.update_status(status='@{0} Regular: {1}\nTroll: {2}\n Learn more at http://trollspotter.com'.format(username, predicted_list[0], predicted_list[1]), in_reply_to_status_id=status_id)
+notified_senders = []
+def reply_percentages(status, model, scaler):
+    username = status._json['user']['screen_name']
+    status_id = status._json['id_str']
+    retweeted = status._json['is_quote_status']
+    print(retweeted)
+    if not retweeted:
+        if username in notified_senders:
+            logging.warning("Not sending notification for {0} because they are already in the notified_senders list.".format(username))
+            return
+        api.update_status(status='@{0} It looks like you tweeted text at me without quoting another status. Quote someone else to see the results properly. \nLearn more at http://trollspotter.com'.format(username), in_reply_to_status_id=status_id)
+        logging.debug("Notifying user {0} that they need to retweet. This will be the last notification they get.".format(username))
+        notified_senders.append(username)
+    else:
+        quoted_status = status._json['quoted_status']['text']
+        tokenized_raveled_padded = tokenize_ravel_pad(quoted_status)
+        scaled = scale_tweet(tokenized_raveled_padded)
+        predicted = predict_scaled_tweet_threaded(scaled)
+        print(predicted)
+        predicted_list = predicted[0].tolist()
+        print(predicted_list)
+        print(predicted_list[0])
+        print(predicted_list[1])
+        api.update_status(status='@{0} Regular: {1}\nTroll: {2}\nLearn more at http://trollspotter.com'.format(username, predicted_list[0], predicted_list[1]), in_reply_to_status_id=status_id)
 
 # create a class inheriting from the tweepy  StreamListener
 # tried breaking this up into another file, it's here because of some strange scoping / multithreading issues otherwise
@@ -58,11 +70,8 @@ class BotStreamer(tweepy.StreamListener):
         print(status._json)
         logging.info("Processing a new status " + status._json['text'])
         print("Processing a new status " + status._json['text'])
-        username = status._json['user']['screen_name']
-        status_id = status._json['id_str']
-        text = status._json['text']
         # entities provide structured data from Tweets including resolved URLs, media, hashtags and mentions without having to parse the text to extract that information
-        reply_percentages(username, status_id, text, model, scaler)
+        reply_percentages(status, model, scaler)
         
     def on_error(self, error):
         logging.error("ERROR! " + str(error))
