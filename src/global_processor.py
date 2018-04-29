@@ -50,6 +50,8 @@ def process(large_file_path_to_load, labels_path):
     print("Y Train size:" + str(len(y_test)))
     print("Train test split complete. Converting to np arrays and sending to network.")
     return x_train, x_test, y_train, y_test
+
+
 def process_no_split(large_file_path_to_load, labels_path):
     print("Loading data from large file...")
     all_adjusted = np.load(large_file_path_to_load + ".npy")
@@ -60,6 +62,7 @@ def process_no_split(large_file_path_to_load, labels_path):
     all_scaled = scaler.fit_transform(all_adjusted)
     print("Scaling complete. Sending to validator...")
     return all_scaled, all_labels
+
 
 def pad_tweets(all_tweets):
     all_adjusted = []

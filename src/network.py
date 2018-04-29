@@ -13,6 +13,7 @@ import sklearn.metrics as metrics
 from constants import MAX_VECTOR_COUNT, LEARNING_RATE
 import global_processor
 
+
 def execute_network(data_path, label_path, model_name):
     # Model Template
     print("Initializing model using naive file processing.")
@@ -48,6 +49,7 @@ def execute_network(data_path, label_path, model_name):
     model.save(model_name)
     print("Model saved. Use predict_on_model() to see cross validation results.")
 
+
 def predict_on_model(data_path, label_path, model_name):
     print("Getting cross validation set from FileReader...")
     x_cv, y_cv = global_processor.process_no_split(data_path, label_path)
@@ -72,6 +74,7 @@ def predict_on_model(data_path, label_path, model_name):
     print(acc)
     print(rec)
     print(prec)
+
 
 def train_existing_model(data_path, label_path, model_name, trainCount):
     print("Initializing model using naive file processing.")
@@ -118,6 +121,7 @@ def execute_network():
                 last_model_name = train_existing_model(tweet_file, label_file, last_model_name, training_iteration_count)
                 training_iteration_count += 1
     print("All processing complete! Completed " + str(training_iteration_count) + " iterations.")
+
 
 if __name__ == "__main__":
     execute_network()

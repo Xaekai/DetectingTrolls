@@ -8,17 +8,17 @@ import spacy
 import datetime
 import time
 import numpy as np
-from constants import MAX_VECTOR_SIZE
+from constants import MAX_VECTOR_COUNT
 emojis_list = map(lambda x: ''.join(x.split()), emoji.UNICODE_EMOJI.keys())
 r = re.compile('|'.join(re.escape(p) for p in emojis_list))
 
 
-def filterEmojis(s):
+def filter_emojis(s):
     s = re.sub(r, ' ', s)
     return s
 
 
-def buildInputArrays(path, nlp):
+def build_input_arrays(path, nlp):
     output = []
 
     with open(path, 'r', encoding="utf8") as csvfile:
@@ -39,7 +39,7 @@ def buildInputArrays(path, nlp):
     return output
 
 
-def preprocessInput(path):
+def preprocess_input(path):
     """"Removes emojis and writes them out to file."""
     lines = []
 
@@ -48,9 +48,10 @@ def preprocessInput(path):
             lines.append(line)
     with open(path + "_no_emojis", 'w', encoding="utf8") as outputFile:
         for line in lines:
-            outputFile.write(filterEmojis(line))
+            outputFile.write(filter_emojis(line))
 
-def writeOutNpyMatrixFile(array, filename, chunkCount, doChunks=True):
+
+def write_out_npy_matrix_file(array, filename, chunkCount, doChunks=True):
     np_array = np.array(array)
     if doChunks:
         chunked = np.array_split(np_array, chunkCount)
@@ -66,7 +67,9 @@ def writeOutNpyMatrixFile(array, filename, chunkCount, doChunks=True):
         val = np.array(array)
         with open(filename + ".npy", 'wb') as outputFile:
             np.save(outputFile, val)
-def unrollAndFilter():
+
+
+def unroll_and_filter():
     """My initial formatting choice was terrible. This loads, unrolls, and writes them back out."""
     for fileNo in range(0, 10):
         bot_tweets_unfiltered = []
@@ -75,7 +78,7 @@ def unrollAndFilter():
         bot_tweets = list(filter(lambda x: len(x) != 0, bot_tweets_unfiltered))
         bot_tweets_filtered = [np.concatenate(x).ravel() for x in bot_tweets]
         bot_tweets_padded = pad_tweet_arr(bot_tweets_filtered)
-        writeOutNpyMatrixFile(bot_tweets_padded, "D:/data/bot_tweets_vectorized_raveled_" + str(fileNo), -1, doChunks=False)
+        write_out_npy_matrix_file(bot_tweets_padded, "D:/data/bot_tweets_vectorized_raveled_" + str(fileNo), -1, doChunks=False)
     for fileNo in range(6, 7):
         for chunkNo in range(0, 10):
             regular_tweets_unfiltered = []
@@ -85,9 +88,10 @@ def unrollAndFilter():
             regular_tweets = list(filter(lambda x: len(x) != 0, regular_tweets_unfiltered))
             regular_tweets_filtered = [np.concatenate(x).ravel() for x in regular_tweets]
             regular_tweets_padded = pad_tweet_arr(regular_tweets_filtered)
-            writeOutNpyMatrixFile(regular_tweets_padded, "D:/data/regular_tweets_vectorized_raveled_" + str(fileNo) + "_" + str(chunkNo), -1, doChunks=False)
+            write_out_npy_matrix_file(regular_tweets_padded, "D:/data/regular_tweets_vectorized_raveled_" + str(fileNo) + "_" + str(chunkNo), -1, doChunks=False)
 
-def padarray(A, size):
+
+def pad_array(A, size):
     t = size - len(A)
     return np.pad(A, pad_width=(0, t), mode='constant')
 
@@ -102,9 +106,10 @@ def pad_tweet_arr(arr):
         else:
             # we need to add fake empty tokens to pad
             needed_empty = MAX_VECTOR_COUNT - len(tweet)
-            tweet = padarray(tweet, MAX_VECTOR_COUNT)
+            tweet = pad_array(tweet, MAX_VECTOR_COUNT)
         out.append(tweet)
     return out
+
 
 if __name__ == "__main__":
     # use "python -m spacy download en_core_web_lg" to get the latest vector set
@@ -123,7 +128,7 @@ if __name__ == "__main__":
     for chunkNumber in range(0, 7):
         print("Beginning file " + str(chunkNumber))
         matrix_tweets = []
-        matrix_tweets += buildInputArrays('../data/non_bot_chunk_' + str(chunkNumber) + '.csv', nlp)
-        writeOutNpyMatrixFile(matrix_tweets, "regular_tweets_vectorized_" + str(chunkNumber), 10)
+        matrix_tweets += build_input_arrays('../data/non_bot_chunk_' + str(chunkNumber) + '.csv', nlp)
+        write_out_npy_matrix_file(matrix_tweets, "regular_tweets_vectorized_" + str(chunkNumber), 10)
     now = datetime.datetime.now()
     print("Preprocessing complete at " + str(now))
