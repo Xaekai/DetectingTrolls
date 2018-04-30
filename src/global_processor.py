@@ -9,13 +9,6 @@ import os
 from sklearn.externals import joblib
 import logging
 import sys
-root = logging.getLogger()
-root.setLevel(logging.DEBUG)
-ch = logging.StreamHandler(sys.stdout)
-ch.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-ch.setFormatter(formatter)
-root.addHandler(ch)
 
 
 def build_large_arr(base_name, bot_no, chunk_lower, chunk_higher, fileNo):
@@ -126,10 +119,9 @@ def load_chunk(file_path):
         labels = np.zeros(len(all_scaled), dtype=int)
     logging.info(all_scaled)
     x_train, x_test, y_train, y_test = train_test_split(all_scaled, labels, shuffle=True, test_size=0.2)
-    logging.info("X TRAIN")
-    logging.info(x_train)
     logging.info("X Train size:" + str(len(x_train)))
     logging.info("X Test size:" + str(len(x_test)))
     logging.info("Y Train size:" + str(len(y_train)))
     logging.info("Y Train size:" + str(len(y_test)))
-    return x_train, x_test, y_train, y_test
+
+    return np.array(x_train), np.array(x_test), np.array(y_train), np.array(y_test)

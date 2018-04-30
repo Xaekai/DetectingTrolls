@@ -26,8 +26,8 @@ root.addHandler(ch)
 def execute_network(x_train, x_test, y_train, y_test, model_name):
     # Model Template
     logging.info("Initializing model using naive file processing.")
-    y_train = to_categorical(y_train)
-    y_test = to_categorical(y_test)
+    y_train = to_categorical(y_train, num_classes=2)
+    y_test = to_categorical(y_test, num_classes=2)
     logging.info("Data received from FileReader. Converting label data to categorical format...")
 
     logging.info("Final prep complete, model initializing")
@@ -49,7 +49,7 @@ def execute_network(x_train, x_test, y_train, y_test, model_name):
     logging.info("Model compilation complete.")
     # Train Model
     history = model.fit(x_train, y_train,
-                        validation_data = (x_test, y_test),
+                        validation_data=(x_test, y_test),
                         epochs=2,
                         batch_size=2048,
                         verbose=1)
@@ -86,8 +86,8 @@ def predict_on_model(data_path, label_path, model_name):
 
 def train_existing_model(x_train, x_test, y_train, y_test, model_name, trainCount):
     logging.info("Initializing model using naive file processing.")
-    y_train = to_categorical(y_train)
-    y_test = to_categorical(y_test)
+    y_train = to_categorical(y_train, num_classes=2)
+    y_test = to_categorical(y_test, num_classes=2)
     logging.info("Data received. Converting label data to categorical format...")
     logging.info("Loading model...")
     model = load_model(model_name)
@@ -98,9 +98,10 @@ def train_existing_model(x_train, x_test, y_train, y_test, model_name, trainCoun
                         batch_size=2048,
                         verbose=1)
     logging.info("Epochs complete. Saving model...")
-    model.save(model_name + "_" + str(trainCount))
+    new_model_name = model_name.split("_")[0] + "_" + str(trainCount)
+    model.save(new_model_name)
     logging.info("Model saved. Use predict_on_model() to see cross validation results.")
-    return model_name.split("_")[0] + "_" + str(trainCount)
+    return new_model_name
 
 
 def train_network_on_all_data():
@@ -111,40 +112,47 @@ def train_network_on_all_data():
     data_dir = input("Input data dir: ")
     files = os.listdir(data_dir)
     random.shuffle(files)
-    x_train, y_train, x_test, y_test = np.empty()
+    x_train = None
+    x_test = None
+    y_train = None
+    y_test = None
     loaded_count = 0 # loads CHUNKS_PER_ITERATION chunks
     for iteration in range(0, PASSES):
         for file in files:
-            loaded_x_train, loaded_x_test, loaded_y_train, loaded_y_test = global_processor.load_chunk(os.path.join(data_dir, file))
-            x_train = np.append(loaded_x_train)
-            x_test = np.append(loaded_x_test)
-            y_train = np.append(loaded_y_train)
-            y_test = np.append(loaded_y_test)
-            logging.info(y_train)
-            logging.info(y_test)
-            input()
+            if x_train is None:
+                x_train, x_test, y_train, y_test = global_processor.load_chunk(os.path.join(data_dir, file))
+            else:
+                loaded_x_train, loaded_x_test, loaded_y_train, loaded_y_test = global_processor.load_chunk(
+                    os.path.join(data_dir, file))
+                x_train = np.concatenate([x_train, loaded_x_train])
+                x_test = np.concatenate([x_test, loaded_x_test])
+                y_train = np.concatenate([y_train, loaded_y_train])
+                y_test = np.concatenate([y_test, loaded_y_test])
             loaded_count += 1
             if loaded_count >= CHUNKS_PER_ITERATION:
                 if first:
                     execute_network(
-                        np.array(x_train),
-                        np.array(x_test),
-                        np.array(y_train),
-                        np.array(y_test),
+                        x_train,
+                        x_test,
+                        y_train,
+                        y_test,
                         last_model_name)
                     first = False
                 else:
                     last_model_name = train_existing_model(
-                        np.array(x_train),
-                        np.array(x_test),
-                        np.array(y_train),
-                        np.array(y_test),
+                        x_train,
+                        x_test,
+                        y_train,
+                        y_test,
                         last_model_name,
                         training_iteration_count)
                     training_iteration_count += 1
                 # reset arrs
                 loaded_count = 0
-                x_train, y_train, x_test, y_test = [[], [], [], []]
+                x_train = None
+                x_test = None
+                y_train = None
+                y_test = None
     logging.info("All processing complete! Completed " + str(training_iteration_count) + " iterations.")
 
 
