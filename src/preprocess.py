@@ -1,6 +1,8 @@
 """
 This performs all the CSV parsing, wrangling and NLP (word2vec, using SpaCy's large vector set) for the data.
 """
+import os
+import sys
 import emoji
 import re
 import csv
@@ -11,7 +13,16 @@ import numpy as np
 from constants import MAX_VECTOR_COUNT
 emojis_list = map(lambda x: ''.join(x.split()), emoji.UNICODE_EMOJI.keys())
 r = re.compile('|'.join(re.escape(p) for p in emojis_list))
+import logging
 
+root = logging.getLogger()
+root.setLevel(logging.DEBUG)
+
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+root.addHandler(ch)
 
 def filter_emojis(s):
     s = re.sub(r, ' ', s)
@@ -22,21 +33,27 @@ def build_input_arrays(path, nlp):
     output = []
 
     with open(path, 'r', encoding="utf8") as csvfile:
-        print("Tokenizing file at " + path)
+        logging.info("Tokenizing file at " + path)
         reader = csv.DictReader(csvfile)
         rowCount = 0
         for row in reader:
+
             rowCount += 1
             if rowCount % 10000 == 0:
                 print("Completed a batch of 10000 rows. Current row count: " + str(rowCount))
             rowTokens = []
-            tokens = nlp(row['text'])
+            no_emojis = filter_emojis(row['text'])
+            # we remove emojis primarily because Spacy will not identify them with a word vector, so they're just noise
+            tokens = nlp(no_emojis)
             for tok in tokens:
                 rowTokens.append(tok.vector)
-            output.append((rowTokens, row['userid']))
-    print(datetime.datetime.now())
-    print(len(output))
-    return output
+            output.append(rowTokens)
+
+    tweets = list(filter(lambda x: len(x) != 0, output))
+    tweets_filtered = [np.concatenate(x).ravel() for x in tweets]
+    tweets_padded = pad_tweet_arr(tweets_filtered)
+    logging.info("Completed file {0} and built array of {1} rows.".format(path, len(output)))
+    return tweets_padded
 
 
 def preprocess_input(path):
@@ -58,15 +75,18 @@ def write_out_npy_matrix_file(array, filename, chunkCount, doChunks=True):
         chunkCount = 0
 
         for chunk in chunked:
-            print("Writing chunk of size " + str(chunk.size))
+            logging.info("Writing chunk of size " + str(chunk.size))
             with open(filename + "_" + str(chunkCount) + ".npy", 'wb') as outputFile:
                 np_chunk = chunk
                 np.save(outputFile, np_chunk)
             chunkCount += 1
     else:
+        logging.info("Converting arr into np format...")
         val = np.array(array)
+        logging.info("Done. Writing file...")
         with open(filename + ".npy", 'wb') as outputFile:
             np.save(outputFile, val)
+        logging.info("Done.")
 
 
 def unroll_and_filter():
@@ -100,12 +120,10 @@ def pad_tweet_arr(arr):
     out = []
     for tweet in arr:
         if len(tweet) > MAX_VECTOR_COUNT:
-            print("Trimming tweet vectors with vector length " + str(len(tweet)))
+            logging.warning("Trimming tweet vectors with vector length " + str(len(tweet)))
             tweet = tweet[:MAX_VECTOR_COUNT]
             # trim, but it's highly unlikely there are that many tokens
         else:
-            # we need to add fake empty tokens to pad
-            needed_empty = MAX_VECTOR_COUNT - len(tweet)
             tweet = pad_array(tweet, MAX_VECTOR_COUNT)
         out.append(tweet)
     return out
@@ -114,21 +132,22 @@ def pad_tweet_arr(arr):
 if __name__ == "__main__":
     # use "python -m spacy download en_core_web_lg" to get the latest vector set
     now = datetime.datetime.now()
-    print("Preprocessing begins at " + str(now))
-    print("Loading Spacy's large vector set. " + str(now))
+    logging.info("Preprocessing begins at " + str(now))
+    logging.info("Loading Spacy's large vector set. " + str(now))
     nlp = spacy.load('en_vectors_web_lg')
     now = datetime.datetime.now()
-    print("Finished loading. " + str(now))
-
-    # bot_tweets = buildInputArrays('../data/bot_tweets.csv', nlp)
-    # bot_labels = np.ones(len(bot_tweets), dtype=int)
+    logging.info("Finished loading. " + str(now))
     # we can load the labels later, since they're trivial to infer from the file we load
-    # writeOutNpyMatrixFile(bot_tweets, "bot_tweets_vectorized", 10)
-    # a bit brutish but I don't want to deal with a lot of file IO
-    for chunkNumber in range(0, 7):
-        print("Beginning file " + str(chunkNumber))
-        matrix_tweets = []
-        matrix_tweets += build_input_arrays('../data/non_bot_chunk_' + str(chunkNumber) + '.csv', nlp)
-        write_out_npy_matrix_file(matrix_tweets, "regular_tweets_vectorized_" + str(chunkNumber), 10)
+    input_path = input("Enter target data directory to traverse: ")
+    output_path = input("Enter target output directory for vectorized tweets: ")
+    bot_status = input("Are these regular tweets or bot tweets? (0: regular; 1: bot): ")
+    matrix_tweets = []
+    output_file_number = 0
+    for file in os.listdir(input_path):
+        logging.info("Beginning file " + file)
+        matrix_tweets += build_input_arrays(os.path.join(input_path, file), nlp)
+        prefix_str = "regular_" if bot_status == "1" else "bot_"
+        write_out_npy_matrix_file(matrix_tweets, os.path.join(output_path, prefix_str + str(output_file_number)), None, doChunks=False)
+        output_file_number += 1
     now = datetime.datetime.now()
-    print("Preprocessing complete at " + str(now))
+    logging.info("Preprocessing complete at " + str(now))
