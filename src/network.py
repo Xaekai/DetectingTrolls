@@ -5,24 +5,32 @@ from keras.optimizers import SGD
 import numpy as np
 import time
 import datetime
-
+import os
 import tensorflow as tf
 from sklearn.metrics import confusion_matrix
 from keras.utils import to_categorical
 import sklearn.metrics as metrics
-from constants import MAX_VECTOR_COUNT, LEARNING_RATE
+from constants import MAX_VECTOR_COUNT, LEARNING_RATE, CHUNKS_PER_ITERATION, PASSES
 import global_processor
+import random
+import logging
+import sys
+root = logging.getLogger()
+root.setLevel(logging.DEBUG)
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+root.addHandler(ch)
 
-
-def execute_network(data_path, label_path, model_name):
+def execute_network(x_train, x_test, y_train, y_test, model_name):
     # Model Template
-    print("Initializing model using naive file processing.")
-    x_train, x_test, y_train, y_test = global_processor.process(data_path, label_path)
+    logging.info("Initializing model using naive file processing.")
     y_train = to_categorical(y_train)
     y_test = to_categorical(y_test)
-    print("Data received from FileReader. Converting label data to categorical format...")
+    logging.info("Data received from FileReader. Converting label data to categorical format...")
 
-    print("Final prep complete, model initializing")
+    logging.info("Final prep complete, model initializing")
     model = Sequential()  # declare model
     model.add(Dense(1000, input_shape=(MAX_VECTOR_COUNT, ), kernel_initializer='he_normal'))  # first layer
     model.add(Activation('linear'))
@@ -32,35 +40,35 @@ def execute_network(data_path, label_path, model_name):
     model.add(Activation('sigmoid'))
     model.summary()
     # Compile Model
-    print("Compiling model...")
+    logging.info("Compiling model...")
     optimizer = SGD(lr=LEARNING_RATE)
 
     model.compile(optimizer='sgd',
                   loss='binary_crossentropy',
                   metrics=['accuracy', 'binary_accuracy'])
-    print("Model compilation complete.")
+    logging.info("Model compilation complete.")
     # Train Model
     history = model.fit(x_train, y_train,
                         validation_data = (x_test, y_test),
                         epochs=2,
                         batch_size=2048,
                         verbose=1)
-    print("Epochs complete. Saving model...")
+    logging.info("Epochs complete. Saving model...")
     model.save(model_name)
-    print("Model saved. Use predict_on_model() to see cross validation results.")
+    logging.info("Model saved. Use predict_on_model() to see cross validation results.")
 
 
 def predict_on_model(data_path, label_path, model_name):
-    print("Getting cross validation set from FileReader...")
+    logging.info("Getting cross validation set from FileReader...")
     x_cv, y_cv = global_processor.process_no_split(data_path, label_path)
-    print("Loading model...")
+    logging.info("Loading model...")
     model = load_model(model_name)
-    print("Load complete.")
+    logging.info("Load complete.")
     # Report Results
     predicted = model.predict(x_cv)
     y_pred = []
     for val in predicted:
-        print(val)
+        logging.info("Predicted {0}".format(val))
         if(val[0] > val[1]):
             y_pred.append(0)
         else:
@@ -76,52 +84,69 @@ def predict_on_model(data_path, label_path, model_name):
     print(prec)
 
 
-def train_existing_model(data_path, label_path, model_name, trainCount):
-    print("Initializing model using naive file processing.")
-    x_train, x_test, y_train, y_test = global_processor.process(data_path, label_path)
+def train_existing_model(x_train, x_test, y_train, y_test, model_name, trainCount):
+    logging.info("Initializing model using naive file processing.")
     y_train = to_categorical(y_train)
     y_test = to_categorical(y_test)
-    print("Data received from FileReader. Converting label data to categorical format...")
-    print("Loading model...")
+    logging.info("Data received. Converting label data to categorical format...")
+    logging.info("Loading model...")
     model = load_model(model_name)
-    print("Model loaded.")
+    logging.info("Model loaded.")
     history = model.fit(x_train, y_train,
                         validation_data=(x_test, y_test),
                         epochs=2,
                         batch_size=2048,
                         verbose=1)
-    print("Epochs complete. Saving model...")
+    logging.info("Epochs complete. Saving model...")
     model.save(model_name + "_" + str(trainCount))
-    print("Model saved. Use predict_on_model() to see cross validation results.")
-    return model_name + "_" + str(trainCount)
+    logging.info("Model saved. Use predict_on_model() to see cross validation results.")
+    return model_name.split("_")[0] + "_" + str(trainCount)
 
 
-def execute_network():
+def train_network_on_all_data():
     # base_name, chunk_lower, chunk_higher, fileNo
     first = True
-    last_model_name = "troll_model"
+    last_model_name = "model_0"
     training_iteration_count = 0
-    for fileNo in range(0, 6):
-        for chunk_lower in range(0, 9, 3):
-            base_dir = "../data/large_chunk_" + str(fileNo) + "_" + str(chunk_lower) + "_" + str(chunk_lower + 3)
-            global_processor.build_large_arr(
-                base_dir,
-                fileNo + chunk_lower // 3,
-                chunk_lower,
-                chunk_lower + 3,
-                fileNo)
-            # We break up data into these chunks partially as an artifact of preprocessing
-            # but more realistically because
-            tweet_file = base_dir + "_tweets"
-            label_file = base_dir + "_labels"
-            if first:
-                execute_network(tweet_file, label_file, last_model_name)
-                first = False
-            else:
-                last_model_name = train_existing_model(tweet_file, label_file, last_model_name, training_iteration_count)
-                training_iteration_count += 1
-    print("All processing complete! Completed " + str(training_iteration_count) + " iterations.")
+    data_dir = input("Input data dir: ")
+    files = os.listdir(data_dir)
+    random.shuffle(files)
+    x_train, y_train, x_test, y_test = np.empty()
+    loaded_count = 0 # loads CHUNKS_PER_ITERATION chunks
+    for iteration in range(0, PASSES):
+        for file in files:
+            loaded_x_train, loaded_x_test, loaded_y_train, loaded_y_test = global_processor.load_chunk(os.path.join(data_dir, file))
+            x_train = np.append(loaded_x_train)
+            x_test = np.append(loaded_x_test)
+            y_train = np.append(loaded_y_train)
+            y_test = np.append(loaded_y_test)
+            logging.info(y_train)
+            logging.info(y_test)
+            input()
+            loaded_count += 1
+            if loaded_count >= CHUNKS_PER_ITERATION:
+                if first:
+                    execute_network(
+                        np.array(x_train),
+                        np.array(x_test),
+                        np.array(y_train),
+                        np.array(y_test),
+                        last_model_name)
+                    first = False
+                else:
+                    last_model_name = train_existing_model(
+                        np.array(x_train),
+                        np.array(x_test),
+                        np.array(y_train),
+                        np.array(y_test),
+                        last_model_name,
+                        training_iteration_count)
+                    training_iteration_count += 1
+                # reset arrs
+                loaded_count = 0
+                x_train, y_train, x_test, y_test = [[], [], [], []]
+    logging.info("All processing complete! Completed " + str(training_iteration_count) + " iterations.")
 
 
 if __name__ == "__main__":
-    execute_network()
+    train_network_on_all_data()

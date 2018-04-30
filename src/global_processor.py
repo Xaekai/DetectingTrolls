@@ -1,15 +1,21 @@
 """
 Once data has been vectorized, this makes large scale adjustments to the data to make it ready for the network.
 """
-
 import numpy as np
 from constants import MAX_VECTOR_COUNT
-import pandas as pd
-from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.preprocessing import normalize
-from itertools import chain
+import os
+from sklearn.externals import joblib
+import logging
+import sys
+root = logging.getLogger()
+root.setLevel(logging.DEBUG)
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+root.addHandler(ch)
 
 
 def build_large_arr(base_name, bot_no, chunk_lower, chunk_higher, fileNo):
@@ -98,23 +104,32 @@ def pad_tweet_arr(arr):
     return out
 
 
-def load_chunk(bot_no, chunk_lower, chunk_higher, fileNo):
-    """Loads files such that roughly 90% are regular and 10% are bot tweets. Takes roughly 6.5gb RAM"""
-    bot_tweets_unfiltered = []
-    print("Loading " + "../data/bot_tweets_vectorized" + "_" + str(bot_no) + ".npy")
-    bot_loaded = np.load("../data/bot_tweets_vectorized" + "_" + str(bot_no) + ".npy")
-    bot_tweets_unfiltered = np.append(bot_tweets_unfiltered, [x[0] for x in bot_loaded])
-    regular_tweets_unfiltered = []
-    for chunkNo in range(chunk_lower, chunk_higher):
-        print("Loading " + "../data/regular_tweets_vectorized_" + str(fileNo) + "_" + str(chunkNo) + ".npy")
-        regular_loaded = np.load("../data/regular_tweets_vectorized_" + str(fileNo) + "_" + str(chunkNo) + ".npy")
-        regular_tweets_unfiltered = np.append(regular_tweets_unfiltered, [x[0] for x in regular_loaded])
-    bot_tweets = list(filter(lambda x: len(x) != 0, bot_tweets_unfiltered))
-    regular_tweets = list(filter(lambda x: len(x) != 0, regular_tweets_unfiltered))
-    bot_tweets = [np.concatenate(x).ravel() for x in bot_tweets]
-    regular_tweets = [np.concatenate(x).ravel() for x in regular_tweets]
-    bot_labels = np.ones(len(bot_tweets), dtype=int)
-    regular_labels = np.zeros(len(regular_tweets), dtype=int)
-    return (bot_tweets, bot_labels, regular_tweets, regular_labels)
-
-
+def load_chunk(file_path):
+    basename = os.path.basename(file_path)
+    if "bot" in basename:
+        logging.info("Flagging {0} as a bot file.".format(file_path))
+        is_bot = True
+    elif "regular" in basename:
+        is_bot = False
+        logging.info("Flagging {0} as a regular file.".format(file_path))
+    else:
+        logging.error("File {0} is neither regular or bot!".format(file_path))
+        return
+    tweets = np.load(file_path)
+    labels = []
+    scaler = joblib.load('scaler.pkl')
+    logging.info(tweets)
+    all_scaled = scaler.transform(tweets)
+    if is_bot:
+        labels = np.ones(len(all_scaled), dtype=int)
+    else:
+        labels = np.zeros(len(all_scaled), dtype=int)
+    logging.info(all_scaled)
+    x_train, x_test, y_train, y_test = train_test_split(all_scaled, labels, shuffle=True, test_size=0.2)
+    logging.info("X TRAIN")
+    logging.info(x_train)
+    logging.info("X Train size:" + str(len(x_train)))
+    logging.info("X Test size:" + str(len(x_test)))
+    logging.info("Y Train size:" + str(len(y_train)))
+    logging.info("Y Train size:" + str(len(y_test)))
+    return x_train, x_test, y_train, y_test

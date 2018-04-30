@@ -11,13 +11,12 @@ import datetime
 import time
 import numpy as np
 from constants import MAX_VECTOR_COUNT
+import logging
+import sys
 emojis_list = map(lambda x: ''.join(x.split()), emoji.UNICODE_EMOJI.keys())
 r = re.compile('|'.join(re.escape(p) for p in emojis_list))
-import logging
-
 root = logging.getLogger()
 root.setLevel(logging.DEBUG)
-
 ch = logging.StreamHandler(sys.stdout)
 ch.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
