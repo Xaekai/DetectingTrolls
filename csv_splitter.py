@@ -27,6 +27,7 @@ for arg in sys.argv[1:]:
 	for i in range(len(chunked_rows)):
 		c = open(filename.split(".")[0] + '_chunk_' + str(i) + '.csv', 'w+', encoding="utf8")
 		mywriter = csv.writer(c, delimiter=',')
+		mywriter.writerow(headings)
 		for chunk_row in chunked_rows[i]:
 			 mywriter.writerow(chunk_row)
 		c.close()

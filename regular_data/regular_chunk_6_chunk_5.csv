@@ -1,3 +1,4 @@
+sentiment,userid,date,query,userId,text
 4,1990628293,Mon Jun 01 05:21:44 PDT 2009,NO_QUERY,EmelyJv,"BBQ @garden, hmm.  it's very hot, i like it!"
 
 4,1990628310,Mon Jun 01 05:21:44 PDT 2009,NO_QUERY,smokey_2009,"God, it's so bleedin' warm! I love it. "

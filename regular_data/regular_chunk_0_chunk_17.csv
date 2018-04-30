@@ -1,3 +1,4 @@
+sentiment,userid,date,query,userId,text
 0,1753738504,Sun May 10 03:10:53 PDT 2009,NO_QUERY,ramshaw,@coldclimate I try to avoid it wherever possible but sometimes I have no choice 
 
 0,1753738863,Sun May 10 03:11:00 PDT 2009,NO_QUERY,carlasheiban,has more work than she can handle... and needs a new phone 

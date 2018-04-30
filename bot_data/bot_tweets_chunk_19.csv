@@ -1,3 +1,4 @@
+userid,user_key,created_at,created_str,retweet_count,retweeted,favorite_count,text,tweet_id,source,hashtags,expanded_urls,posted,mentions,retweeted_status_id,in_reply_to_status_id
 1655194147,melanymelanin,1463673370000,2016-05-19 15:56:10,,,,"RT @ODeeCS: @3rdEyePlug Thank you for saying it anyway, long, loudly, and clearly. It does get heard.",733325383391715328,,[],[],POSTED,[],,
 1914760610,ravenicholson,1477134305000,2016-10-22 11:05:05,0,false,0,RT @ArthurA_P: America Rejects Trump &amp; Hits Him In Wallet As His Hotel Business Plummets - Keep up Boycott against TRUMP Business https://t…,789784636197076996,"<a href=""http://twitter.com"" rel=""nofollow"">Twitter Web Client</a>",[],[],POSTED,"[""arthura_p""]",789778353498820608,
 2533001646,jasper_fly,1471262826000,2016-08-15 12:07:06,,,,"RT @DominicValent: But perhaps my two fav #AthleticsTVShows would have to be ""In The Rick Honeycutt""",765157869763211266,,"[""AthleticsTVShows""]",[],POSTED,[],,

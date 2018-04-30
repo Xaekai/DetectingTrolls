@@ -143,7 +143,7 @@ if __name__ == "__main__":
     bot_status = input("Are these regular tweets or bot tweets? (0: regular; 1: bot): ")
     matrix_tweets = []
     output_file_number = 0
-    prefix_str = "regular_" if bot_status == "1" else "bot_"
+    prefix_str = "regular_" if bot_status == "0" else "bot_"
     for file in os.listdir(input_path):
         target_path = os.path.join(output_path, prefix_str + str(output_file_number))
         while os.path.exists(target_path):

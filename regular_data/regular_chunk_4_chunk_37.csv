@@ -1,3 +1,4 @@
+sentiment,userid,date,query,userId,text
 4,1834436523,Mon May 18 02:55:49 PDT 2009,NO_QUERY,robkelsall,@liencam and then...?  (im not going to continue this...) Beers sound gud. will check fundage tho...
 
 4,1834436546,Mon May 18 02:55:49 PDT 2009,NO_QUERY,ndeloof,New maven sandobx shared : maven-plugin-helper - avoid plugin developers to reinvent the wheel 
