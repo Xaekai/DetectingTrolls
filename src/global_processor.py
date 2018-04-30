@@ -116,3 +116,5 @@ def load_chunk(bot_no, chunk_lower, chunk_higher, fileNo):
     bot_labels = np.ones(len(bot_tweets), dtype=int)
     regular_labels = np.zeros(len(regular_tweets), dtype=int)
     return (bot_tweets, bot_labels, regular_tweets, regular_labels)
+
+

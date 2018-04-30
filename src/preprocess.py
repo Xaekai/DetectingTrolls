@@ -143,11 +143,16 @@ if __name__ == "__main__":
     bot_status = input("Are these regular tweets or bot tweets? (0: regular; 1: bot): ")
     matrix_tweets = []
     output_file_number = 0
+    prefix_str = "regular_" if bot_status == "1" else "bot_"
     for file in os.listdir(input_path):
+        target_path = os.path.join(output_path, prefix_str + str(output_file_number))
+        while os.path.exists(target_path):
+            target_path = os.path.join(output_path, prefix_str + str(output_file_number))
+            logging.info("File {0} exists, skipping.".format(target_path))
+            output_file_number += 1
         logging.info("Beginning file " + file)
-        matrix_tweets += build_input_arrays(os.path.join(input_path, file), nlp)
-        prefix_str = "regular_" if bot_status == "1" else "bot_"
-        write_out_npy_matrix_file(matrix_tweets, os.path.join(output_path, prefix_str + str(output_file_number)), None, doChunks=False)
+        matrix_tweets = build_input_arrays(os.path.join(input_path, file), nlp)
+        write_out_npy_matrix_file(matrix_tweets, target_path, 10, doChunks=True)
         output_file_number += 1
     now = datetime.datetime.now()
     logging.info("Preprocessing complete at " + str(now))
