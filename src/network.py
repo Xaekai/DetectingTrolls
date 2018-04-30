@@ -2,6 +2,7 @@ from keras.models import Sequential
 from keras.layers import Dense, Activation, Dropout, Flatten
 from keras.models import load_model
 from keras.optimizers import SGD
+import itertools as IT
 import numpy as np
 import time
 import datetime
@@ -15,6 +16,7 @@ import global_processor
 import random
 import logging
 import sys
+
 root = logging.getLogger()
 root.setLevel(logging.DEBUG)
 ch = logging.StreamHandler(sys.stdout)
@@ -56,6 +58,7 @@ def execute_network(x_train, x_test, y_train, y_test, model_name):
     logging.info("Epochs complete. Saving model...")
     model.save(model_name)
     logging.info("Model saved. Use predict_on_model() to see cross validation results.")
+    return model
 
 
 def predict_on_model(data_path, label_path, model_name):
@@ -84,14 +87,12 @@ def predict_on_model(data_path, label_path, model_name):
     print(prec)
 
 
-def train_existing_model(x_train, x_test, y_train, y_test, model_name, trainCount):
+def train_existing_model(model, x_train, x_test, y_train, y_test, model_name, trainCount):
     logging.info("Initializing model using naive file processing.")
+    logging.info("Data received. Converting label data to categorical format...")
     y_train = to_categorical(y_train, num_classes=2)
     y_test = to_categorical(y_test, num_classes=2)
-    logging.info("Data received. Converting label data to categorical format...")
-    logging.info("Loading model...")
-    model = load_model(model_name)
-    logging.info("Model loaded.")
+    logging.info("Done.")
     history = model.fit(x_train, y_train,
                         validation_data=(x_test, y_test),
                         epochs=2,
@@ -99,24 +100,48 @@ def train_existing_model(x_train, x_test, y_train, y_test, model_name, trainCoun
                         verbose=1)
     logging.info("Epochs complete. Saving model...")
     new_model_name = model_name.split("_")[0] + "_" + str(trainCount)
-    model.save(new_model_name)
     logging.info("Model saved. Use predict_on_model() to see cross validation results.")
-    return new_model_name
+    return [model, new_model_name]
 
+def evenly_spaced(*iterables):
+    """
+    >>> evenly_spaced(range(10), list('abc'))
+    [0, 1, 'a', 2, 3, 4, 'b', 5, 6, 7, 'c', 8, 9]
+    """
+    return [item[1] for item in
+            sorted(IT.chain.from_iterable(
+            zip(IT.count(start=1.0 / (len(seq) + 1),
+                         step=1.0 / (len(seq) + 1)), seq)
+            for seq in iterables))]
 
 def train_network_on_all_data():
     # base_name, chunk_lower, chunk_higher, fileNo
     first = True
+    model = None
     last_model_name = "model_0"
     training_iteration_count = 0
     data_dir = input("Input data dir: ")
     files = os.listdir(data_dir)
-    random.shuffle(files)
+    bot_files = [f for f in files if "bot" in f]
+    regular_files = [f for f in files if "regular" in f]
+    random.shuffle(bot_files)
+    random.shuffle(regular_files)
+    len_both = len(bot_files) + len(regular_files)
+    a = [f for f in files if "bot" in f]
+    b = [f for f in files if "regular" in f]
+    logging.info(a)
+    logging.info(b)
+    interleaved_file_list = evenly_spaced(a, b)
+    logging.info(interleaved_file_list)
+
+
+    input()
     x_train = None
     x_test = None
     y_train = None
     y_test = None
-    loaded_count = 0 # loads CHUNKS_PER_ITERATION chunks
+    loaded_count = 0  # loads CHUNKS_PER_ITERATION chunks
+    steps_to_save = 0
     for iteration in range(0, PASSES):
         for file in files:
             if x_train is None:
@@ -131,7 +156,7 @@ def train_network_on_all_data():
             loaded_count += 1
             if loaded_count >= CHUNKS_PER_ITERATION:
                 if first:
-                    execute_network(
+                    model = execute_network(
                         x_train,
                         x_test,
                         y_train,
@@ -139,7 +164,8 @@ def train_network_on_all_data():
                         last_model_name)
                     first = False
                 else:
-                    last_model_name = train_existing_model(
+                    [model, last_model_name] = train_existing_model(
+                        model,
                         x_train,
                         x_test,
                         y_train,
@@ -149,10 +175,13 @@ def train_network_on_all_data():
                     training_iteration_count += 1
                 # reset arrs
                 loaded_count = 0
+                steps_to_save += 1
                 x_train = None
                 x_test = None
                 y_train = None
                 y_test = None
+        logging.info("Saving model with name {0}.".format(last_model_name))
+        model.save(last_model_name)
     logging.info("All processing complete! Completed " + str(training_iteration_count) + " iterations.")
 
 
