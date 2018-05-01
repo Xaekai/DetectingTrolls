@@ -104,3 +104,4 @@ ENV/
 *.npy
 # output models
 troll_model*
+model_*
