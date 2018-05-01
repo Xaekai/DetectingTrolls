@@ -6,10 +6,12 @@ NBC Universal has provided 200,000 tweets determined to be related in some way t
 I combined this with a dataset of 1.6m "regular" tweets located [here](http://thinknook.com/twitter-sentiment-analysis-training-corpus-dataset-2012-09-22/). Originally intended for sentiment analysis, but it provides a great base for "regular" tweets.
 
 ## Goal
-The hope is that we will be able to classify tweets as Russian troll tweets given this training set. I don't expect to see anything even close to 80% accuracy, but if it can help find the needle in the haystack, it's a net positive.
+The hope is that we will be able to classify tweets as Russian troll tweets given this training set.
 It's also a nice educational exercise in data wrangling and neural nets.
 
 ## Implementation
+In a nutshell:
+Loads tweets, computes their vectors, and uses those as input to a neural network. Network then accepts inputs from a Flask API.
 
 ### Preprocessing / Wrangling
 
@@ -21,9 +23,9 @@ This allows it to fit in the repo comfortably and improve processing performance
 
 Here, `SpaCy` and `word2vec` become crucial. word2vec s the algorithm described in the seminal paper by Google [here](https://papers.nips.cc/paper/5021-distributed-representations-of-words-and-phrases-and-their-compositionality.pdf)
 
-At the end of this step, we can use `spacy`'s `vector` function to get a `word2vec` representation of each token in the string. The vectors are raveled such that one tweet is a single row of vectors in unrolled in order. Those are then saved to a file in 10 chunks.
+At the end of this step, we can use `spacy`'s `vector` function to get a `word2vec` representation of each token in the string. The vectors are raveled such that one tweet is a single row of vectors in unrolled in order. Those are then saved to a file with 2000 tweets per row.
 
-**Warning!**: The matrix files are roughly 700 MB each, 10 partitions, per chunk of the data (there are 8 in total, including the bots file)
+**Warning!**: The matrix files are around 70 GB in size when downloaded.
 
 
 ### File processing
@@ -41,7 +43,7 @@ This file is distinct from the preprocessor for a few reasons.
 ### Network
 
 When a chunk is loaded, we use `scikit_learn`'s `StandardScaler` to transform the data to be better formatted for the network.
-The network trains on it for two epochs with a batch size of 2048 (this is also a rough guess, each chunk is roughly 64k tweets for training).
+The network trains on it for two epochs with a batch size of 2048 (this is also a rough guess, each chunk is roughly 64k tweets for training) on each chunk.
 
 Our input layer will then accept an array of size 12,000 (`word2vec` provides a size 300 matrix for every token, trimmed to 40 tokens) (a rough guesstimate of the highest token count) with each row containing a tweet.
 We then apply two dense linear layers with 2,000 neurons each. This was tuned via trial and error. Dropout, softmax and sigmoid tends to interfere here. Our output layer is a sigmoid layer that accepts one hot encodings of the input labels.
@@ -59,9 +61,22 @@ The network trains on chunks four at a time. This is mostly due to the massive m
 ## System requirements
 Working with huge matrices and large amounts of file IO is demanding. **Your system will crash if it runs 32 bit Python. There is not enough room in the address space to load even a single chunk.**
 Keras is backed with Tensorflow, so it will use your GPU while running.
-**Expected RAM requirements: 6gb with surges up to 10gb**
+**Expected RAM requirements: 3gb with surges up to 10gb**
 
 **Expected disk space requirements: 100+gb free is ideal here.**
+
+## Metrics
+With the most recent rewrite, the new AI handles extremely well!
+Accuracy 0.9647619047619047
+Recall [0.99293333 0.89433333]
+Precision [0.95917053 0.98062865]
+CLASSIFICATION REPORT
+             precision    recall  f1-score   support
+
+          0       0.96      0.99      0.98      7500
+          1       0.98      0.89      0.94      3000
+
+avg / total       0.97      0.96      0.96     10500
 
 ## Future improvements
 
