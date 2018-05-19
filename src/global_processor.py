@@ -40,6 +40,9 @@ def load_chunk(file_path):
     return np.array(x_train), np.array(x_test), np.array(y_train), np.array(y_test)
 
 
+def load_raw(file_path):
+    """Loads a raw matrix file with no transformations. Exists mostly as an abstraction."""
+    return np.load(file_path)
 
 
 def evenly_spaced(*iterables):

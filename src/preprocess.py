@@ -137,21 +137,35 @@ if __name__ == "__main__":
     now = datetime.datetime.now()
     logging.info("Finished loading. " + str(now))
     # we can load the labels later, since they're trivial to infer from the file we load
-    input_path = input("Enter target data directory to traverse: ")
+    input_data = []
+    should_continue = True
+    while should_continue:
+        input_path = input("Enter target data directory to traverse: ")
+        bot_status = input("Are these regular tweets or bot tweets? (0: regular; 1: bot): ")
+        input_data.append((input_path, bot_status))
+        choice = input("Enter another? y/n ")
+        if not choice == "y":
+            should_continue = False
+    logging.info("Preparing to traverse {0} directories.".format(len(input_data)))
+
     output_path = input("Enter target output directory for vectorized tweets: ")
-    bot_status = input("Are these regular tweets or bot tweets? (0: regular; 1: bot): ")
-    matrix_tweets = []
-    output_file_number = 0
-    prefix_str = "regular_" if bot_status == "0" else "bot_"
-    for file in os.listdir(input_path):
-        target_path = os.path.join(output_path, prefix_str + str(output_file_number))
-        while os.path.exists(target_path):
+
+    for input_entry in input_data:
+        matrix_tweets = []
+        output_file_number = 0
+        prefix_str = "regular_" if input_entry[1] == "0" else "bot_"
+        logging.info("Prefix is {0}".format(prefix_str))
+        logging.info("Processing a new input file!")
+        input_path = input_entry[0]
+        for file in os.listdir(input_path):
             target_path = os.path.join(output_path, prefix_str + str(output_file_number))
-            logging.info("File {0} exists, skipping.".format(target_path))
+            while os.path.exists(target_path):
+                target_path = os.path.join(output_path, prefix_str + str(output_file_number))
+                logging.info("File {0} exists, skipping.".format(target_path))
+                output_file_number += 1
+            logging.info("Beginning file " + file)
+            matrix_tweets = build_input_arrays(os.path.join(input_path, file), nlp)
+            write_out_npy_matrix_file(matrix_tweets, target_path, 10, doChunks=True)
             output_file_number += 1
-        logging.info("Beginning file " + file)
-        matrix_tweets = build_input_arrays(os.path.join(input_path, file), nlp)
-        write_out_npy_matrix_file(matrix_tweets, target_path, 10, doChunks=True)
-        output_file_number += 1
-    now = datetime.datetime.now()
+        now = datetime.datetime.now()
     logging.info("Preprocessing complete at " + str(now))

@@ -4,6 +4,8 @@ from keras.models import load_model
 from keras.optimizers import SGD
 
 import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.externals import joblib
 import time
 import datetime
 import os
@@ -121,6 +123,16 @@ def load_validation_data(dir, model_path):
     logging.info("Available samples {0}".format(x_all.size))
     predict_on_model(model, x_all, y_all)
 
+def rebuild_scaler(dir):
+    interleaved_file_list = get_interleaved_file_list(dir)
+    scaler = StandardScaler()
+    for file in interleaved_file_list:
+        logging.info("Loading file for scaling {0}".format(file))
+        matrix = global_processor.load_raw(os.path.join(dir, file))
+        scaler.partial_fit(matrix)
+        logging.info("Partial fit on matrix file complete.")
+    joblib.dump(scaler, 'scaler.pkl')
+
 
 def get_interleaved_file_list(data_dir):
     """Builds an interleaved file list such that bot entries are evenly spaced"""
@@ -194,7 +206,8 @@ def menu():
     while True:
         print("1: Train network on folder")
         print("2: Validate on data")
-        print("3: Exit")
+        print("3: Rebuild scaler on data")
+        print("4: Exit")
         choice = input("Select option: ")
         if choice == "1":
             data_dir = input("Input data dir: ")
@@ -204,7 +217,11 @@ def menu():
             validation_data_dir = input("Enter path to validation data directory: ")
             load_validation_data(validation_data_dir, model_path)
         elif choice == "3":
+            data_dir = input("Input data dir: ")
+            rebuild_scaler(data_dir)
+        elif choice == "4":
             exit(0)
+
 
 
 if __name__ == "__main__":
