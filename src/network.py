@@ -158,7 +158,7 @@ def train_network_on_all_data(data_dir):
     y_train = None
     y_test = None
     loaded_count = 0  # loads CHUNKS_PER_ITERATION chunks
-    interleaved_file_list = get_interleaved_file_list()
+    interleaved_file_list = get_interleaved_file_list(data_dir)
     for file in interleaved_file_list:
         if x_train is None:
             x_train, x_test, y_train, y_test = global_processor.load_chunk(os.path.join(data_dir, file))
