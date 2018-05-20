@@ -7,22 +7,11 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import os
 from sklearn.externals import joblib
-import logging
-import sys
-import random
-import itertools as IT
+from common import *
 
 def load_chunk(file_path):
     basename = os.path.basename(file_path)
-    if "bot" in basename:
-        logging.info("Flagging {0} as a bot file.".format(file_path))
-        is_bot = True
-    elif "regular" in basename:
-        is_bot = False
-        logging.info("Flagging {0} as a regular file.".format(file_path))
-    else:
-        logging.error("File {0} is neither regular or bot!".format(file_path))
-        return
+    is_bot = is_bot_file(file_path)
     tweets = np.load(file_path)
     labels = []
     scaler = joblib.load('scaler.pkl')
@@ -40,18 +29,9 @@ def load_chunk(file_path):
     return np.array(x_train), np.array(x_test), np.array(y_train), np.array(y_test)
 
 
+
 def load_raw(file_path):
     """Loads a raw matrix file with no transformations. Exists mostly as an abstraction."""
     return np.load(file_path)
 
 
-def evenly_spaced(*iterables):
-    """
-    >>> evenly_spaced(range(10), list('abc'))
-    [0, 1, 'a', 2, 3, 4, 'b', 5, 6, 7, 'c', 8, 9]
-    """
-    return [item[1] for item in
-            sorted(IT.chain.from_iterable(
-            zip(IT.count(start=1.0 / (len(seq) + 1),
-                         step=1.0 / (len(seq) + 1)), seq)
-            for seq in iterables))]

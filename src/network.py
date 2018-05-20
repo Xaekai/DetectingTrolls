@@ -2,7 +2,8 @@ from keras.models import Sequential
 from keras.layers import Dense, Activation, Dropout, Flatten
 from keras.models import load_model
 from keras.optimizers import SGD
-
+import spacy
+import csv
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.externals import joblib
@@ -15,18 +16,8 @@ from keras.utils import to_categorical
 import sklearn.metrics as metrics
 from constants import MAX_VECTOR_COUNT, LEARNING_RATE, CHUNKS_PER_ITERATION, PASSES
 import global_processor
-from global_processor import evenly_spaced
-import random
-import logging
-import sys
+from common import *
 
-root = logging.getLogger()
-root.setLevel(logging.DEBUG)
-ch = logging.StreamHandler(sys.stdout)
-ch.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-ch.setFormatter(formatter)
-root.addHandler(ch)
 
 def execute_network(x_train, x_test, y_train, y_test, model_name):
     # Model Template
@@ -84,6 +75,7 @@ def predict_on_model(model, x_cv, y_cv):
     logging.info("Precision {0}".format(prec))
     logging.info("CLASSIFICATION REPORT\n{0}".format(report))
 
+
 def train_existing_model(model, x_train, x_test, y_train, y_test, model_name, trainCount):
     logging.info("Initializing model using naive file processing.")
     logging.info("Data received. Converting label data to categorical format...")
@@ -123,6 +115,39 @@ def load_validation_data(dir, model_path):
     logging.info("Available samples {0}".format(x_all.size))
     predict_on_model(model, x_all, y_all)
 
+
+def validate_on_text_data(data_dir, model_name):
+    interleaved_file_list = get_interleaved_file_list(data_dir)
+    logging.info("Loading Spacy's large vector set. ")
+    nlp = spacy.load('en_vectors_web_lg')
+    logging.info("Finished loading. ")
+    for file in interleaved_file_list:
+        file_path = os.path.join(data_dir, file)
+        is_bot = is_bot_file(file_path)
+        with open(file_path, 'r', encoding="utf8") as tweet_file:
+            reader = csv.DictReader(tweet_file)
+            tweets = []
+            for line in reader:
+                text = line['text']
+                no_emojis = filter_emojis(text)
+                rowTokens = []
+                tokens = nlp(no_emojis)
+                for tok in tokens:
+                    rowTokens.append(tok.vector)
+                tweet_filtered = np.concatenate(rowTokens).ravel()
+                tweets.append(tweet_filtered)
+            tweets_padded = pad_tweet_arr(tweets)
+            scaler = joblib.load('scaler.pkl')
+            all_scaled = scaler.transform(tweets_padded)
+            labels = []
+            if is_bot:
+                labels = np.ones(len(all_scaled), dtype=int)
+            else:
+                labels = np.zeros(len(all_scaled), dtype=int)
+            model = load_model(model_name)
+            predict_on_model(model, all_scaled, labels)
+
+
 def rebuild_scaler(dir):
     interleaved_file_list = get_interleaved_file_list(dir)
     scaler = StandardScaler()
@@ -132,18 +157,6 @@ def rebuild_scaler(dir):
         scaler.partial_fit(matrix)
         logging.info("Partial fit on matrix file complete.")
     joblib.dump(scaler, 'scaler.pkl')
-
-
-def get_interleaved_file_list(data_dir):
-    """Builds an interleaved file list such that bot entries are evenly spaced"""
-    files = os.listdir(data_dir)
-    bot_files = [f for f in files if "bot" in f]
-    regular_files = [f for f in files if "regular" in f]
-    random.shuffle(bot_files)
-    random.shuffle(regular_files)
-    interleaved_file_list = evenly_spaced(bot_files, regular_files)
-    logging.info(interleaved_file_list)
-    return interleaved_file_list
 
 
 def train_network_on_all_data(data_dir):
@@ -206,8 +219,9 @@ def menu():
     while True:
         print("1: Train network on folder")
         print("2: Validate on data")
-        print("3: Rebuild scaler on data")
-        print("4: Exit")
+        print("3: Validate on text data")
+        print("4: Rebuild scaler on data")
+        print("5: Exit")
         choice = input("Select option: ")
         if choice == "1":
             data_dir = input("Input data dir: ")
@@ -217,11 +231,14 @@ def menu():
             validation_data_dir = input("Enter path to validation data directory: ")
             load_validation_data(validation_data_dir, model_path)
         elif choice == "3":
+            model_path = input("Enter path to model: ")
+            validation_data_dir = input("Enter path to validation data directory: ")
+            validate_on_text_data(validation_data_dir, model_path)
+        elif choice == "4":
             data_dir = input("Input data dir: ")
             rebuild_scaler(data_dir)
-        elif choice == "4":
+        elif choice == "5":
             exit(0)
-
 
 
 if __name__ == "__main__":

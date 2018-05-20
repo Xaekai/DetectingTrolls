@@ -13,19 +13,7 @@ import numpy as np
 from constants import MAX_VECTOR_COUNT
 import logging
 import sys
-emojis_list = map(lambda x: ''.join(x.split()), emoji.UNICODE_EMOJI.keys())
-r = re.compile('|'.join(re.escape(p) for p in emojis_list))
-root = logging.getLogger()
-root.setLevel(logging.DEBUG)
-ch = logging.StreamHandler(sys.stdout)
-ch.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-ch.setFormatter(formatter)
-root.addHandler(ch)
-
-def filter_emojis(s):
-    s = re.sub(r, ' ', s)
-    return s
+from common import *
 
 
 def build_input_arrays(path, nlp):
@@ -55,18 +43,6 @@ def build_input_arrays(path, nlp):
     return tweets_padded
 
 
-def preprocess_input(path):
-    """"Removes emojis and writes them out to file."""
-    lines = []
-
-    with open(path, 'r') as inputFile:
-        for line in inputFile:
-            lines.append(line)
-    with open(path + "_no_emojis", 'w', encoding="utf8") as outputFile:
-        for line in lines:
-            outputFile.write(filter_emojis(line))
-
-
 def write_out_npy_matrix_file(array, filename, chunkCount, doChunks=True):
     np_array = np.array(array)
     if doChunks:
@@ -88,45 +64,26 @@ def write_out_npy_matrix_file(array, filename, chunkCount, doChunks=True):
         logging.info("Done.")
 
 
-def unroll_and_filter():
-    """My initial formatting choice was terrible. This loads, unrolls, and writes them back out."""
-    for fileNo in range(0, 10):
-        bot_tweets_unfiltered = []
-        bot_loaded = np.load("D:/data/bot_tweets_vectorized_" + str(fileNo) + ".npy")
-        bot_tweets_unfiltered = [x[0] for x in bot_loaded]
-        bot_tweets = list(filter(lambda x: len(x) != 0, bot_tweets_unfiltered))
-        bot_tweets_filtered = [np.concatenate(x).ravel() for x in bot_tweets]
-        bot_tweets_padded = pad_tweet_arr(bot_tweets_filtered)
-        write_out_npy_matrix_file(bot_tweets_padded, "D:/data/bot_tweets_vectorized_raveled_" + str(fileNo), -1, doChunks=False)
-    for fileNo in range(6, 7):
-        for chunkNo in range(0, 10):
-            regular_tweets_unfiltered = []
-            print("Loading " + "D:/data/regular_tweets_vectorized_" + str(fileNo))
-            regular_loaded = np.load("D:/data/regular_tweets_vectorized_" + str(fileNo) + "_" + str(chunkNo) + ".npy")
-            regular_tweets_unfiltered = np.append(regular_tweets_unfiltered, [x[0] for x in regular_loaded])
-            regular_tweets = list(filter(lambda x: len(x) != 0, regular_tweets_unfiltered))
-            regular_tweets_filtered = [np.concatenate(x).ravel() for x in regular_tweets]
-            regular_tweets_padded = pad_tweet_arr(regular_tweets_filtered)
-            write_out_npy_matrix_file(regular_tweets_padded, "D:/data/regular_tweets_vectorized_raveled_" + str(fileNo) + "_" + str(chunkNo), -1, doChunks=False)
-
-
-def pad_array(A, size):
-    t = size - len(A)
-    return np.pad(A, pad_width=(0, t), mode='constant')
-
-
-def pad_tweet_arr(arr):
-    out = []
-    for tweet in arr:
-        if len(tweet) > MAX_VECTOR_COUNT:
-            logging.warning("Trimming tweet vectors with vector length " + str(len(tweet)))
-            tweet = tweet[:MAX_VECTOR_COUNT]
-            # trim, but it's highly unlikely there are that many tokens
-        else:
-            tweet = pad_array(tweet, MAX_VECTOR_COUNT)
-        out.append(tweet)
-    return out
-
+def preprocess_data(input_data, output_path):
+    for input_entry in input_data:
+        matrix_tweets = []
+        output_file_number = 0
+        prefix_str = "regular_" if input_entry[1] == "0" else "bot_"
+        logging.info("Prefix is {0}".format(prefix_str))
+        logging.info("Processing a new input file!")
+        input_path = input_entry[0]
+        for file in os.listdir(input_path):
+            target_path = os.path.join(output_path, prefix_str + str(output_file_number))
+            while os.path.exists(target_path):
+                target_path = os.path.join(output_path, prefix_str + str(output_file_number))
+                logging.info("File {0} exists, skipping.".format(target_path))
+                output_file_number += 1
+            logging.info("Beginning file " + file)
+            matrix_tweets = build_input_arrays(os.path.join(input_path, file), nlp)
+            write_out_npy_matrix_file(matrix_tweets, target_path, 10, doChunks=True)
+            output_file_number += 1
+        now = datetime.datetime.now()
+    logging.info("Preprocessing complete at " + str(now))
 
 if __name__ == "__main__":
     # use "python -m spacy download en_core_web_lg" to get the latest vector set
@@ -147,25 +104,6 @@ if __name__ == "__main__":
         if not choice == "y":
             should_continue = False
     logging.info("Preparing to traverse {0} directories.".format(len(input_data)))
-
     output_path = input("Enter target output directory for vectorized tweets: ")
+    preprocess_data(input_data, output_path)
 
-    for input_entry in input_data:
-        matrix_tweets = []
-        output_file_number = 0
-        prefix_str = "regular_" if input_entry[1] == "0" else "bot_"
-        logging.info("Prefix is {0}".format(prefix_str))
-        logging.info("Processing a new input file!")
-        input_path = input_entry[0]
-        for file in os.listdir(input_path):
-            target_path = os.path.join(output_path, prefix_str + str(output_file_number))
-            while os.path.exists(target_path):
-                target_path = os.path.join(output_path, prefix_str + str(output_file_number))
-                logging.info("File {0} exists, skipping.".format(target_path))
-                output_file_number += 1
-            logging.info("Beginning file " + file)
-            matrix_tweets = build_input_arrays(os.path.join(input_path, file), nlp)
-            write_out_npy_matrix_file(matrix_tweets, target_path, 10, doChunks=True)
-            output_file_number += 1
-        now = datetime.datetime.now()
-    logging.info("Preprocessing complete at " + str(now))
